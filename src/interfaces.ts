@@ -35,6 +35,10 @@ export interface ITransportAdapter {
     disconnect: () => void;
 }
 
+export interface ITransportAdapterMeta {
+    completed?: boolean;
+}
+
 export interface ITransport<Type extends string> {
     state$: Observable<TransportState>;
     connect: VoidFunction;

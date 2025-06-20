@@ -1,27 +1,29 @@
 import {Observable, race, throwError} from 'rxjs';
 import {filter, mergeMap} from 'rxjs/operators';
-import {ITransportAdapter, IMessage, TransportState} from '../interfaces';
+import {IMessage, ITransportAdapter, ITransportAdapterMeta, TransportState} from '../interfaces';
+import {v4} from "uuid";
 
 export const sendRequest = <Response extends object>(
     adapter: ITransportAdapter,
     message: IMessage,
-    clientMsgId: string,
+    meta?: ITransportAdapterMeta,
 ): Observable<IMessage> => {
-    const request$ = new Observable<IMessage<Response>>(subscriber => {
-        adapter.add(clientMsgId);
+    const clientMsgId = message.clientMsgId
+        ? message.clientMsgId
+        : v4();
+
+    const request$ = new Observable<IMessage<Response>>(message$ => {
+        if (!meta?.completed) {
+            adapter.add(clientMsgId);
+        }
 
         const subscription = adapter.data$.subscribe(data => {
             if (data.clientMsgId === clientMsgId) {
-                subscriber.next({
+                message$.next({
                     payload: data.payload as Response,
                     payloadType: data.payloadType,
                     clientMsgId,
                 });
-
-                adapter.drop(clientMsgId);
-
-                subscription.unsubscribe();
-                subscriber.complete();
             }
         });
 
@@ -31,18 +33,25 @@ export const sendRequest = <Response extends object>(
                 payload: message.payload,
                 payloadType: message.payloadType,
             });
+
+            if (meta?.completed) {
+                adapter.drop(clientMsgId);
+
+                subscription.unsubscribe();
+                message$.complete();
+            }
         } catch (error) {
             adapter.drop(clientMsgId);
 
             subscription.unsubscribe();
-            subscriber.error(error);
+            message$.error(error);
         }
 
         return () => {
             adapter.drop(clientMsgId);
 
             subscription.unsubscribe();
-            subscriber.complete();
+            message$.complete();
         };
     });
 

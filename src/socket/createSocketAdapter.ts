@@ -24,6 +24,7 @@ export const createSocketAdapter = (params: ISocketAdapterParams): ITransportAda
     const state$ = new BehaviorSubject<TransportState>(TransportState.Disconnected);
 
     const data$ = new Subject<IMessage>();
+    const event$ = new Subject<IMessage>();
     const message$ = new Subject<string>();
 
     const timeout$ = timer(handshakeTimeout);
@@ -68,11 +69,11 @@ export const createSocketAdapter = (params: ISocketAdapterParams): ITransportAda
 
                         if (messages[message.clientMsgId]) {
                             logger.response(message, {prefix, prefixColor, messageName});
+                            data$.next(message);
                         } else {
                             logger.event(message, {prefix, prefixColor, messageName});
+                            event$.next(message);
                         }
-
-                        data$.next(message);
                     }
                 } catch (error: unknown) {
                     logger.error(`[${prefix}] socket catch error`, error ?? '');
@@ -113,11 +114,7 @@ export const createSocketAdapter = (params: ISocketAdapterParams): ITransportAda
 
     return {
         data$: data$.asObservable(),
-        event$: data$.pipe(
-            filter(message => {
-                return !Object.keys(messages).includes(message.clientMsgId);
-            }),
-        ),
+        event$: event$.asObservable(),
         state$: state$.asObservable(),
         connect,
         disconnect,

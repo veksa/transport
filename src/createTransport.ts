@@ -1,5 +1,4 @@
 import {firstValueFrom} from 'rxjs';
-import {v4} from 'uuid';
 import {sendRequest} from './_helpers/sendRequest';
 import {IMessage, ITransport, ITransportAdapter, ITransportApi} from './interfaces';
 import {ILogger} from '@veksa/logger';
@@ -19,9 +18,7 @@ export const createTransport = <Type extends string>(
     };
 
     const send = async (message: IMessage) => {
-        const clientMsgId = v4();
-
-        const response$ = sendRequest<Response>(adapter, message, clientMsgId);
+        const response$ = sendRequest<Response>(adapter, message);
 
         const response = await firstValueFrom(response$);
 

@@ -1,29 +1,36 @@
-import {BehaviorSubject, Subject, switchMap, Subscription} from 'rxjs';
-import {catchError, filter} from 'rxjs/operators';
-import {createHostConnector} from './createHostConnector';
+import {BehaviorSubject, Subject, Subscription, switchMap} from 'rxjs';
+import {catchError} from 'rxjs/operators';
+import {createMessageConnector} from './createMessageConnector';
 import {ILogger} from '@veksa/logger';
-import {TransportState, IMessage, ITransportAdapter} from '../interfaces';
+import {IMessage, ITransportAdapter, TransportState} from '../interfaces';
 
-interface IHostAdapterParams {
+interface IMessageAdapterParams {
+    type: 'message-to-host' | 'message-from-host';
+    frame?: HTMLIFrameElement;
     prefix: string;
     prefixColor?: string;
     getPayloadName: (payloadType: number) => string;
     logger: ILogger;
 }
 
-export const createHostAdapter = (params: IHostAdapterParams): ITransportAdapter => {
-    const {prefix, prefixColor, getPayloadName, logger} = params;
+export const createMessageAdapter = (params: IMessageAdapterParams): ITransportAdapter => {
+    const {type, frame, prefix, prefixColor, getPayloadName, logger} = params;
 
     const messages: Record<string /* clientMsgId */, string /* clientMsgId */> = {};
 
     const state$ = new BehaviorSubject<TransportState>(TransportState.Disconnected);
 
     const data$ = new Subject<IMessage>();
+    const event$ = new Subject<IMessage>();
     const message$ = new Subject<IMessage>();
 
-    const host = createHostConnector<IMessage>().pipe(
+    const host = createMessageConnector<IMessage>(type, frame).pipe(
         switchMap(getResponses => {
-            logger.info(`[${prefix}] connected to host`);
+            if (type === 'message-to-host') {
+                logger.info(`[${prefix}] connected to host`);
+            } else {
+                logger.info(`[${prefix}] connected to client`);
+            }
 
             const request$ = getResponses(message$);
 
@@ -49,21 +56,21 @@ export const createHostAdapter = (params: IHostAdapterParams): ITransportAdapter
 
                         if (messages[message.clientMsgId]) {
                             logger.response(message, {prefix, prefixColor, messageName});
+                            data$.next(message);
                         } else {
                             logger.event(message, {prefix, prefixColor, messageName});
+                            event$.next(message);
                         }
-
-                        data$.next(message);
                     }
                 } catch (error: unknown) {
-                    logger.error(`[${prefix}] host catch error`, error ?? '');
+                    logger.error(`[${prefix}] catch error`, error ?? '');
                 }
             },
             error: (error: unknown) => {
-                logger.error(`[${prefix}] host error`, error ?? '');
+                logger.error(`[${prefix}] error`, error ?? '');
             },
             complete: () => {
-                logger.info(`[${prefix}] host closed`);
+                logger.info(`[${prefix}] closed`);
 
                 state$.next(TransportState.Disconnected);
             },
@@ -85,20 +92,18 @@ export const createHostAdapter = (params: IHostAdapterParams): ITransportAdapter
     const send = (message: IMessage) => {
         const messageName = getPayloadName(message.payloadType);
 
-        logger.request(message, {prefix, prefixColor, messageName});
-
-        if (message) {
-            message$.next(message);
+        if (messages[message.clientMsgId]) {
+            logger.request(message, {prefix, prefixColor, messageName});
+        } else {
+            logger.event(message, {prefix, prefixColor, messageName});
         }
+
+        message$.next(message);
     };
 
     return {
         data$: data$.asObservable(),
-        event$: data$.pipe(
-            filter(message => {
-                return !Object.keys(messages).includes(message.clientMsgId);
-            }),
-        ),
+        event$: event$.asObservable(),
         state$: state$.asObservable(),
         connect,
         disconnect,
