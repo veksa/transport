@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "jsx": "react",
+    "strict": true,
+    "allowJs": true,
+    "esModuleInterop": true,
+    "lib": [
+      "dom",
+      "es2019"
+    ]
+  },
+  "include": ["./src"]
+}
