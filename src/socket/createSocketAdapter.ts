@@ -1,8 +1,8 @@
 import {BehaviorSubject, race, Subject, Subscription, switchMap, throwError, timer} from 'rxjs';
 import {createSocketConnector} from './createSocketConnector';
-import {catchError, mergeMap, filter} from 'rxjs/operators';
+import {catchError, mergeMap} from 'rxjs/operators';
 import {ILogger} from '@veksa/logger';
-import {TransportState, ITransportCodec, IMessage, ITransportAdapter} from '../interfaces';
+import {IMessage, ITransportAdapter, ITransportCodec, TransportState} from '../interfaces';
 
 export const handshakeTimeout = 5000;
 
@@ -25,12 +25,12 @@ export const createSocketAdapter = (params: ISocketAdapterParams): ITransportAda
 
     const data$ = new Subject<IMessage>();
     const event$ = new Subject<IMessage>();
-    const message$ = new Subject<string>();
+    const message$ = new Subject<ArrayBuffer | string>();
 
     const timeout$ = timer(handshakeTimeout);
 
     const socket = race(
-        createSocketConnector<string>(url, protocol),
+        createSocketConnector<ArrayBuffer | string>(url, protocol),
         timeout$.pipe(
             mergeMap(() => {
                 return throwError(() => ({
@@ -62,18 +62,24 @@ export const createSocketAdapter = (params: ISocketAdapterParams): ITransportAda
         subscription = socket.subscribe({
             next: data => {
                 try {
-                    if (data !== undefined) {
+                    if (data) {
                         const message = codec.decode(data);
 
-                        const messageName = getPayloadName(message.payloadType);
+                        if (message) {
+                            const messageName = getPayloadName(message.payloadType);
 
-                        if (messages[message.clientMsgId]) {
-                            logger.response(message, {prefix, prefixColor, messageName});
-                            data$.next(message);
+                            if (messages[message.clientMsgId]) {
+                                logger.response(message, {prefix, prefixColor, messageName});
+                                data$.next(message);
+                            } else {
+                                logger.event(message, {prefix, prefixColor, messageName});
+                                event$.next(message);
+                            }
                         } else {
-                            logger.event(message, {prefix, prefixColor, messageName});
-                            event$.next(message);
+                            logger.error(`[${prefix}] socket invalid decode`, data);
                         }
+                    } else {
+                        logger.error(`[${prefix}] socket invalid message`);
                     }
                 } catch (error: unknown) {
                     logger.error(`[${prefix}] socket catch error`, error ?? '');
@@ -103,12 +109,20 @@ export const createSocketAdapter = (params: ISocketAdapterParams): ITransportAda
     };
 
     const send = (message: IMessage) => {
-        const messageName = getPayloadName(message.payloadType);
-
-        logger.request(message, {prefix, prefixColor, messageName});
-
         if (message) {
-            message$.next(codec.encode(message));
+            const messageName = getPayloadName(message.payloadType);
+
+            logger.request(message, {prefix, prefixColor, messageName});
+
+            const data = codec.encode(message);
+
+            if (data) {
+                message$.next(data);
+            } else {
+                logger.error(`[${prefix}] socket invalid encode`, data);
+            }
+        } else {
+            logger.error(`[${prefix}] socket empty message`);
         }
     };
 

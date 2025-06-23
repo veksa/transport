@@ -1,5 +1,6 @@
 import {Observable} from 'rxjs';
 import {ILogger} from '@veksa/logger';
+import type {Blob} from "buffer";
 
 export enum TransportState {
     Connected = 'Connected',
@@ -7,12 +8,14 @@ export enum TransportState {
     Connecting = 'Connecting',
 }
 
+export type MessageType = ArrayBuffer | string;
+
 export interface ITransportCodec {
-    encode: (message: IMessage) => string;
-    decode: (buffer: string) => IMessage;
+    encode: (message: IMessage) => ArrayBuffer | string | undefined;
+    decode: (buffer: ArrayBuffer | string) => IMessage | undefined;
 }
 
-export interface IMessage<Payload = unknown> {
+export interface IMessage<Payload = object> {
     payloadType: number;
     payload: Payload;
     clientMsgId: string;
