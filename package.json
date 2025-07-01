@@ -1,6 +1,6 @@
 {
   "name": "@veksa/transport",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A reactive transport layer for messaging communication with pluggable adapters and RxJS observables",
   "homepage": "https://github.com/veksa/transport",
   "packageManager": "yarn@4.9.2",

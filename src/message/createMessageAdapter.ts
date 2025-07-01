@@ -1,4 +1,4 @@
-import {BehaviorSubject, Subject, Subscription, switchMap} from 'rxjs';
+import {BehaviorSubject, share, Subject, Subscription, switchMap} from 'rxjs';
 import {catchError} from 'rxjs/operators';
 import {createMessageConnector} from './createMessageConnector';
 import {ILogger} from '@veksa/logger';
@@ -102,9 +102,9 @@ export const createMessageAdapter = (params: IMessageAdapterParams): ITransportA
     };
 
     return {
-        data$: data$.asObservable(),
-        event$: event$.asObservable(),
-        state$: state$.asObservable(),
+        data$: data$.asObservable().pipe(share()),
+        event$: event$.asObservable().pipe(share()),
+        state$: state$.asObservable().pipe(share()),
         connect,
         disconnect,
         add,

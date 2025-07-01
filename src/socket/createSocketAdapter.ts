@@ -1,4 +1,4 @@
-import {BehaviorSubject, race, Subject, Subscription, switchMap, throwError, timer} from 'rxjs';
+import {BehaviorSubject, race, share, Subject, Subscription, switchMap, throwError, timer} from 'rxjs';
 import {createSocketConnector} from './createSocketConnector';
 import {catchError, mergeMap} from 'rxjs/operators';
 import {ILogger} from '@veksa/logger';
@@ -127,9 +127,9 @@ export const createSocketAdapter = (params: ISocketAdapterParams): ITransportAda
     };
 
     return {
-        data$: data$.asObservable(),
-        event$: event$.asObservable(),
-        state$: state$.asObservable(),
+        data$: data$.asObservable().pipe(share()),
+        event$: event$.asObservable().pipe(share()),
+        state$: state$.asObservable().pipe(share()),
         connect,
         disconnect,
         add,
