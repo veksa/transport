@@ -1,6 +1,5 @@
 import {Observable} from 'rxjs';
 import {ILogger} from '@veksa/logger';
-import type {Blob} from "buffer";
 
 export enum TransportState {
     Connected = 'Connected',
@@ -8,32 +7,29 @@ export enum TransportState {
     Connecting = 'Connecting',
 }
 
-export type MessageType = ArrayBuffer | string;
-
-export interface ITransportCodec {
-    encode: (message: IMessage) => ArrayBuffer | string | undefined;
-    decode: (buffer: ArrayBuffer | string) => IMessage | undefined;
-}
-
 export interface IMessage<Payload = object> {
-    payloadType: number;
     payload: Payload;
     clientMsgId: string;
 }
 
-export interface ITransportApi<Type extends string, InternalMessage extends IMessage = IMessage> {
-    type: Type;
-    event$: Observable<IMessage>;
-    send: (message: InternalMessage) => Promise<InternalMessage['payload']>;
+export interface ITransportCodec<Message extends IMessage> {
+    encode: (message: Message) => ArrayBuffer | string | undefined;
+    decode: (buffer: ArrayBuffer | string) => Message | undefined;
 }
 
-export interface ITransportAdapter {
+export interface ITransportApi<Type extends string, InputMessage extends IMessage, OutputMessage extends IMessage, EventMessage extends IMessage> {
+    type: Type;
+    event$?: Observable<EventMessage>;
+    send: (message: InputMessage) => Promise<OutputMessage['payload']>;
+}
+
+export interface ITransportAdapter<InputMessage extends IMessage, OutputMessage extends IMessage, EventMessage extends IMessage> {
+    data$: Observable<OutputMessage>;
+    event$?: Observable<EventMessage>;
+    state$: Observable<TransportState>;
+    send: (message: InputMessage) => void;
     add: (clientMsgId: string) => void;
     drop: (clientMsgId: string) => void;
-    data$: Observable<IMessage>;
-    event$: Observable<IMessage>;
-    state$: Observable<TransportState>;
-    send: (message: IMessage) => void;
     connect: () => void;
     disconnect: () => void;
 }
@@ -42,10 +38,10 @@ export interface ITransportAdapterMeta {
     completed?: boolean;
 }
 
-export interface ITransport<Type extends string> {
+export interface ITransport<Type extends string, InputMessage extends IMessage, OutputMessage extends IMessage, EventMessage extends IMessage> {
     state$: Observable<TransportState>;
     connect: VoidFunction;
     disconnect: VoidFunction;
-    api: ITransportApi<Type>;
-    getLogs: ILogger['getLogs'];
+    api: ITransportApi<Type, InputMessage, OutputMessage, EventMessage>;
+    getLogs: ILogger<IMessage>['getLogs'];
 }

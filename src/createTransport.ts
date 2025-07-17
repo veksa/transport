@@ -1,14 +1,14 @@
 import {firstValueFrom} from 'rxjs';
 import {sendRequest} from './_helpers/sendRequest';
-import {IMessage, ITransport, ITransportAdapter, ITransportApi} from './interfaces';
+import {ITransport, ITransportAdapter, ITransportApi, IMessage} from './interfaces';
 import {ILogger} from '@veksa/logger';
 
-export const createTransport = <Type extends string>(
+export const createTransport = <Type extends string, Message extends IMessage>(
     type: Type,
-    adapter: ITransportAdapter,
-    logger: ILogger,
-    errorPayloads?: number[],
-): ITransport<Type> => {
+    adapter: ITransportAdapter<Message, Message, Message>,
+    logger: ILogger<Message>,
+    isError?: (message: Message) => boolean,
+): ITransport<Type, Message, Message, Message> => {
     const connect = () => {
         adapter.connect();
     };
@@ -17,19 +17,19 @@ export const createTransport = <Type extends string>(
         adapter.disconnect();
     };
 
-    const send = async (message: IMessage) => {
-        const response$ = sendRequest<Response>(adapter, message);
+    const send = async (message: Message) => {
+        const response$ = sendRequest<Message>(adapter, message);
 
         const response = await firstValueFrom(response$);
 
-        if (errorPayloads?.includes(response.payloadType)) {
+        if (isError?.(response)) {
             throw response;
         }
 
         return response.payload as Response;
     };
 
-    const api: ITransportApi<Type> = {
+    const api: ITransportApi<Type, Message, Message, Message> = {
         type,
         event$: adapter.event$,
         send,
@@ -37,7 +37,7 @@ export const createTransport = <Type extends string>(
 
     const getLogs = () => {
         return logger.getLogs();
-    }
+    };
 
     return {
         state$: adapter.state$,

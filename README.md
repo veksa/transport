@@ -88,7 +88,7 @@ const transport = createTransport({
     frame: iframe,
     prefix: 'Host',
     prefixColor: '#4CAF50',
-    getPayloadName: (type) => `Message-${type}`,
+    getMessageName: (type) => `Message-${type}`,
     logger,
   }),
 });
@@ -116,7 +116,7 @@ const transport = createTransport({
   adapter: createClientAdapter({
     prefix: 'Client',
     prefixColor: '#2196F3',
-    getPayloadName: (type) => `Message-${type}`,
+    getMessageName: (type) => `Message-${type}`,
     logger,
   }),
 });
@@ -132,13 +132,16 @@ transport.api.event$.subscribe((message) => {
 
 ## API Reference
 
-### createTransport(options)
+### createTransport(type, adapter, logger, isError)
 
 Creates a new transport instance.
 
-#### Options
+#### Parameters
 
+- `type`: A string identifier for the transport type
 - `adapter`: An implementation of `ITransportAdapter`
+- `logger`: An instance of `ILogger` from @veksa/logger
+- `isError`: Optional function to determine if a message represents an error
 
 #### Transport Methods
 
@@ -155,8 +158,13 @@ Creates a new transport instance.
 
 Creates a WebSocket-based transport adapter.
 
+- `prefix`: Logger prefix for identifying messages
+- `prefixColor`: Optional color for log messages
 - `url`: WebSocket endpoint URL
+- `protocol`: WebSocket protocol
 - `codec`: Message encoding/decoding implementation
+- `getPayloadName`: Function to convert payload type to a readable name
+- `logger`: Instance of @veksa/logger
 
 #### createHostAdapter(options)
 
@@ -179,10 +187,13 @@ Creates an adapter for iframe content to communicate with the host window.
 
 ### Interface Reference
 
-- `ITransport<Type>`: Main transport interface
-- `ITransportAdapter`: Adapter interface for various connection types
-- `ITransportCodec`: Interface for message encoding/decoding
-- `IMessage<Payload>`: Standard message format with payload, type, and ID
+- `ITransport<Type, InputMessage, OutputMessage, EventMessage>`: Main transport interface
+- `ITransportAdapter<InputMessage, OutputMessage, EventMessage>`: Adapter interface for various connection types
+- `ITransportApi<Type, InputMessage, OutputMessage, EventMessage>`: API interface for sending messages and subscribing to events
+- `ITransportCodec<Message>`: Interface for message encoding/decoding
+- `IMessage<Payload>`: Standard message format with payload and client message ID
+- `ISocketMessage`: Interface for socket messages
+- `IPostMessage`: Interface for post messages (cross-window communication)
 
 ## Contributing
 

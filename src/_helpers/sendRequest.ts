@@ -1,18 +1,18 @@
 import {Observable, race, throwError} from 'rxjs';
 import {filter, mergeMap} from 'rxjs/operators';
-import {IMessage, ITransportAdapter, ITransportAdapterMeta, TransportState} from '../interfaces';
-import {v4} from "uuid";
+import {ITransportAdapter, ITransportAdapterMeta, TransportState, IMessage} from '../interfaces';
+import {v4} from 'uuid';
 
-export const sendRequest = <Response extends object>(
-    adapter: ITransportAdapter,
-    message: IMessage,
+export const sendRequest = <Message extends IMessage>(
+    adapter: ITransportAdapter<Message, Message, Message>,
+    message: Message,
     meta?: ITransportAdapterMeta,
-): Observable<IMessage> => {
+): Observable<Message> => {
     const clientMsgId = message.clientMsgId
         ? message.clientMsgId
         : v4();
 
-    const request$ = new Observable<IMessage<Response>>(message$ => {
+    const request$ = new Observable<Message>(message$ => {
         if (!meta?.completed) {
             adapter.add(clientMsgId);
         }
@@ -20,8 +20,7 @@ export const sendRequest = <Response extends object>(
         const subscription = adapter.data$.subscribe(data => {
             if (data.clientMsgId === clientMsgId) {
                 message$.next({
-                    payload: data.payload as Response,
-                    payloadType: data.payloadType,
+                    ...data,
                     clientMsgId,
                 });
             }
@@ -29,9 +28,8 @@ export const sendRequest = <Response extends object>(
 
         try {
             adapter.send({
+                ...message,
                 clientMsgId,
-                payload: message.payload,
-                payloadType: message.payloadType,
             });
 
             if (meta?.completed) {
@@ -62,7 +60,7 @@ export const sendRequest = <Response extends object>(
 
             return throwError(() => ({
                 errorCode: 'ClosedConnection',
-                description: `Message ${message.payloadType} was not sent. Connection is closed`,
+                description: `Message ${JSON.stringify(message)} was not sent. Connection is closed`,
             }));
         }),
     );

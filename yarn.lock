@@ -493,10 +493,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@veksa/logger@npm:^1.0.8":
-  version: 1.0.8
-  resolution: "@veksa/logger@npm:1.0.8"
-  checksum: 10/c08e2c8cf28710fb5268948fcb0f8870de8db5b978c04cae599d9e0c7ebf4d22508125e0495ada005ea4fec830ae3d7b8034a1e7f53451f27414cc02c9ce292c
+"@veksa/logger@npm:^1.0.11":
+  version: 1.0.11
+  resolution: "@veksa/logger@npm:1.0.11"
+  checksum: 10/dec0af66018f8023f2afcb06c8d74bf3d0af044c0b7d03f0ca27843af2ca55505f01ced609b8ae193d18648835a8962b62c00c796709bbe0b8ccefbbcf5fe1a8
   languageName: node
   linkType: hard
 
@@ -505,7 +505,7 @@ __metadata:
   resolution: "@veksa/transport@workspace:."
   dependencies:
     "@types/node": "npm:^24.0.3"
-    "@veksa/logger": "npm:^1.0.8"
+    "@veksa/logger": "npm:^1.0.11"
     rimraf: "npm:^6.0.1"
     rxjs: "npm:^7.8.2"
     ts-node: "npm:^10.9.2"
@@ -513,6 +513,8 @@ __metadata:
     tsup: "npm:^8.5.0"
     typescript: "npm:^5.8.3"
     uuid: "npm:^11.1.0"
+  peerDependencies:
+    "@veksa/logger": ^1.0.11
   languageName: unknown
   linkType: soft
 

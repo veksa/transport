@@ -2,29 +2,30 @@ import {BehaviorSubject, race, share, Subject, Subscription, switchMap, throwErr
 import {createSocketConnector} from './createSocketConnector';
 import {catchError, mergeMap} from 'rxjs/operators';
 import {ILogger} from '@veksa/logger';
-import {IMessage, ITransportAdapter, ITransportCodec, TransportState} from '../interfaces';
+import {ITransportAdapter, ITransportCodec, TransportState} from '../interfaces';
+import {ISocketMessage} from './socket.interface';
 
 export const handshakeTimeout = 5000;
 
-interface ISocketAdapterParams {
+interface ISocketAdapterParams<Message extends ISocketMessage> {
     prefix: string;
     prefixColor?: string;
     url: string;
     protocol: string;
-    codec: ITransportCodec;
-    getPayloadName: (payloadType: number) => string;
-    logger: ILogger;
+    codec: ITransportCodec<Message>;
+    getMessageName: (payloadType: number) => string;
+    logger: ILogger<Message>;
 }
 
-export const createSocketAdapter = (params: ISocketAdapterParams): ITransportAdapter => {
-    const {prefix, prefixColor, url, protocol, codec, getPayloadName, logger} = params;
+export const createSocketAdapter = <Message extends ISocketMessage>(params: ISocketAdapterParams<Message>): ITransportAdapter<Message, Message, Message> => {
+    const {prefix, prefixColor, url, protocol, codec, getMessageName, logger} = params;
 
     const messages: Record<string /* clientMsgId */, string /* clientMsgId */> = {};
 
     const state$ = new BehaviorSubject<TransportState>(TransportState.Disconnected);
 
-    const data$ = new Subject<IMessage>();
-    const event$ = new Subject<IMessage>();
+    const data$ = new Subject<Message>();
+    const event$ = new Subject<Message>();
     const message$ = new Subject<ArrayBuffer | string>();
 
     const timeout$ = timer(handshakeTimeout);
@@ -66,7 +67,7 @@ export const createSocketAdapter = (params: ISocketAdapterParams): ITransportAda
                         const message = codec.decode(data);
 
                         if (message) {
-                            const messageName = getPayloadName(message.payloadType);
+                            const messageName = getMessageName(message.payloadType);
 
                             if (messages[message.clientMsgId]) {
                                 logger.response(message, {prefix, prefixColor, messageName});
@@ -108,9 +109,9 @@ export const createSocketAdapter = (params: ISocketAdapterParams): ITransportAda
         delete messages[clientMsgId];
     };
 
-    const send = (message: IMessage) => {
+    const send = (message: Message) => {
         if (message) {
-            const messageName = getPayloadName(message.payloadType);
+            const messageName = getMessageName(message.payloadType);
 
             logger.request(message, {prefix, prefixColor, messageName});
 

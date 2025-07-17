@@ -1,18 +1,16 @@
 import {Observable, Subject, Subscription} from 'rxjs';
-import {MessageType} from "../interfaces";
-
-export type GetWebSocketResponses<T = MessageType> = (
-    input: Observable<T>,
-) => Observable<T>;
+import {MessagePayload} from './socket.interface';
 
 export const socketCloseCode = 1000;
 
-export function createSocketConnector<Data extends MessageType>(
+export type GetSocketResponses<T = MessagePayload> = (input: Observable<T>) => Observable<T>;
+
+export function createSocketConnector<Payload extends MessagePayload>(
     url: string, protocol: string,
-): Observable<GetWebSocketResponses<Data>> {
-    return new Observable<GetWebSocketResponses<Data>>(observer => {
+): Observable<GetSocketResponses<Payload>> {
+    return new Observable<GetSocketResponses<Payload>>(observer => {
         let inputSubscription: Subscription;
-        const messages = new Subject<Data>();
+        const messages = new Subject<Payload>();
 
         let isSocketClosed = false;
         let forcedClose = false;
@@ -23,8 +21,8 @@ export function createSocketConnector<Data extends MessageType>(
 
         const socket = new WebSocket(url, protocol);
 
-        const getWebSocketResponses: GetWebSocketResponses<Data> = (
-            input: Observable<Data>,
+        const getWebSocketResponses: GetSocketResponses<Payload> = (
+            input: Observable<Payload>,
         ) => {
             inputSubscription = input.subscribe(data => {
                 socket.send(data);
@@ -41,7 +39,7 @@ export function createSocketConnector<Data extends MessageType>(
             }
         };
 
-        socket.onmessage = (message: { data: Data }): void => {
+        socket.onmessage = (message: {data: Payload}): void => {
             messages.next(message.data);
         };
 
@@ -50,11 +48,11 @@ export function createSocketConnector<Data extends MessageType>(
 
             observer.error({
                 errorCode: 'SocketError',
-                description: (event as { message?: string }).message,
+                description: (event as {message?: string}).message,
             } as unknown);
         };
 
-        socket.onclose = (event: { code: number; reason: string }): void => {
+        socket.onclose = (event: {code: number; reason: string}): void => {
             // prevent observer.complete() being called after observer.error(...)
             if (isSocketClosed) {
                 return;
