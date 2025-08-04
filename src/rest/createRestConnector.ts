@@ -46,7 +46,10 @@ export function createRestConnector<Message extends IRestMessage>(
                         return response.json();
                     }).then(responseData => {
                         if (!isConnectionClosed) {
-                            messages.next(responseData as Message);
+                            messages.next({
+                                payload: responseData,
+                                clientMsgId: data.clientMsgId,
+                            } as Message);
                         }
                     }).catch(error => {
                         if (!isConnectionClosed) {
