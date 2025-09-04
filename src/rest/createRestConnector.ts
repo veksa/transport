@@ -3,6 +3,8 @@ import {IRestMessage} from './rest.interface';
 
 export type GetRestResponses<Message = IRestMessage> = (input: Observable<Message>) => Observable<Message>;
 
+export const restErrorUrl = '/error';
+
 export function createRestConnector<Message extends IRestMessage>(
     url: string, health?: string,
 ): Observable<GetRestResponses<Message>> {
@@ -36,24 +38,32 @@ export function createRestConnector<Message extends IRestMessage>(
                             : undefined,
                     }).then(response => {
                         if (!response.ok) {
-                            observer.error({
-                                errorCode: 0,
-                                description: `HTTP error. Status: ${response.status}`,
+                            return response.json().then(errorData => {
+                                messages.next({
+                                    url: restErrorUrl,
+                                    method: data.method,
+                                    headers: data.headers,
+                                    payload: {
+                                        errorCode: response.status,
+                                        description: errorData,
+                                    },
+                                    clientMsgId: data.clientMsgId,
+                                } as Message);
+                                return;
                             });
-                            return;
                         }
 
-                        return response.json();
-                    }).then(responseData => {
-                        if (!isConnectionClosed) {
-                            messages.next({
-                                url: data.url,
-                                method: data.method,
-                                headers: data.headers,
-                                payload: responseData,
-                                clientMsgId: data.clientMsgId,
-                            } as Message);
-                        }
+                        return response.json().then(responseData => {
+                            if (!isConnectionClosed) {
+                                messages.next({
+                                    url: data.url,
+                                    method: data.method,
+                                    headers: data.headers,
+                                    payload: responseData,
+                                    clientMsgId: data.clientMsgId,
+                                } as Message);
+                            }
+                        });
                     }).catch(error => {
                         if (!isConnectionClosed) {
                             observer.error({

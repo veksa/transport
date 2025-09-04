@@ -10,3 +10,4 @@ export {
 export {ISocketMessage} from './socket/socket.interface';
 export {IPostMessage} from './post/post.interface';
 export {IRestMessage} from './rest/rest.interface';
+export {restErrorUrl} from './rest/createRestConnector';
