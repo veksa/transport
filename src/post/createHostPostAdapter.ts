@@ -7,7 +7,7 @@ interface IHostAdapterParams<Message extends IPostMessage> {
     frame?: HTMLIFrameElement;
     prefix: string;
     prefixColor?: string;
-    getMessageName: (payloadType: number) => string;
+    getMessageName: (message: IPostMessage) => string;
     logger: ILogger<Message>;
 }
 

@@ -6,7 +6,7 @@ import {IPostMessage} from './post.interface';
 interface IClientAdapterParams<Message extends IPostMessage> {
     prefix: string;
     prefixColor?: string;
-    getMessageName: (payloadType: number) => string;
+    getMessageName: (message: IPostMessage) => string;
     logger: ILogger<Message>;
 }
 

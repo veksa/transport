@@ -10,7 +10,7 @@ interface IMessageAdapterParams<Message extends IPostMessage> {
     frame?: HTMLIFrameElement;
     prefix: string;
     prefixColor?: string;
-    getMessageName: (payloadType: number) => string;
+    getMessageName: (message: IPostMessage) => string;
     logger: ILogger<Message>;
 }
 
@@ -55,7 +55,7 @@ export const createPostAdapter = <Message extends IPostMessage>(
             next: message => {
                 try {
                     if (message !== undefined) {
-                        const messageName = getMessageName(message.payloadType);
+                        const messageName = getMessageName(message);
 
                         if (messages[message.clientMsgId]) {
                             logger.response(message, {prefix, prefixColor, messageName});
@@ -93,7 +93,7 @@ export const createPostAdapter = <Message extends IPostMessage>(
     };
 
     const send = (message: Message) => {
-        const messageName = getMessageName(message.payloadType);
+        const messageName = getMessageName(message);
 
         if (messages[message.clientMsgId]) {
             logger.request(message, {prefix, prefixColor, messageName});

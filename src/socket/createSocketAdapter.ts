@@ -13,7 +13,7 @@ interface ISocketAdapterParams<Message extends ISocketMessage> {
     url: string;
     protocol: string;
     codec: ITransportCodec<Message>;
-    getMessageName: (payloadType: number) => string;
+    getMessageName: (message: ISocketMessage) => string;
     logger: ILogger<Message>;
 }
 
@@ -67,7 +67,7 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
                         const message = codec.decode(data);
 
                         if (message) {
-                            const messageName = getMessageName(message.payloadType);
+                            const messageName = getMessageName(message);
 
                             if (messages[message.clientMsgId]) {
                                 logger.response(message, {prefix, prefixColor, messageName});
@@ -111,7 +111,7 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
 
     const send = (message: Message) => {
         if (message) {
-            const messageName = getMessageName(message.payloadType);
+            const messageName = getMessageName(message);
 
             logger.request(message, {prefix, prefixColor, messageName});
 
