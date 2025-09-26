@@ -5,7 +5,7 @@ export {createRestAdapter} from './rest/createRestAdapter';
 export {createHostPostAdapter} from './post/createHostPostAdapter';
 export {createClientPostAdapter} from './post/createClientPostAdapter';
 export {
-    type ITransport, type ITransportAdapter, TransportState, type ITransportCodec, type ITransportApi,
+    type ITransport, type ITransportAdapter, TransportState, type ITransportCodec, type ITransportApi, type IMessage,
 } from './interfaces';
 export {ISocketMessage} from './socket/socket.interface';
 export {IPostMessage} from './post/post.interface';
