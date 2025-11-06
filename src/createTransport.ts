@@ -23,7 +23,7 @@ export const createTransport = <Type extends string, Message extends IMessage>(
         const response = await firstValueFrom(response$);
 
         if (isError?.(response)) {
-            throw response;
+            throw response.payload;
         }
 
         return response.payload as Response;
