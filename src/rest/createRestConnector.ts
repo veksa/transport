@@ -44,8 +44,9 @@ export function createRestConnector<Message extends IRestMessage>(
                                     method: data.method,
                                     headers: data.headers,
                                     payload: {
-                                        errorCode: response.status,
-                                        description: errorData,
+                                        errorStatus: response.status,
+                                        errorCode: errorData.errorCode,
+                                        description: errorData.description,
                                     },
                                     clientMsgId: data.clientMsgId,
                                 } as Message);
@@ -67,8 +68,9 @@ export function createRestConnector<Message extends IRestMessage>(
                     }).catch(error => {
                         if (!isConnectionClosed) {
                             observer.error({
-                                errorCode: error.status,
-                                description: error.message,
+                                errorStatus: error.status,
+                                errorCode: error.errorCode,
+                                description: error.description,
                             });
                         }
                     });
@@ -91,6 +93,7 @@ export function createRestConnector<Message extends IRestMessage>(
                 isConnectionClosed = true;
 
                 observer.error({
+                    errorStatus: 0,
                     errorCode: 0,
                     description: error.message,
                 });

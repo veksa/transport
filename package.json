@@ -1,9 +1,13 @@
 {
   "name": "@veksa/transport",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "A reactive transport layer for messaging communication with pluggable adapters and RxJS observables",
   "homepage": "https://github.com/veksa/transport",
   "packageManager": "yarn@4.9.2",
+  "engines": {
+    "node": ">=16.0.0",
+    "yarn": ">=3.0.0"
+  },
   "author": {
     "name": "Aleksandr Khizhnyi",
     "email": "mendler88@gmail.com"
@@ -14,6 +18,7 @@
   },
   "main": "./dist/cjs/index.cjs",
   "types": "./dist/index.d.ts",
+  "module": "./dist/index.mjs",
   "exports": {
     "./package.json": "./package.json",
     ".": {
