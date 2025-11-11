@@ -54,7 +54,10 @@ export function createRestConnector<Message extends IRestMessage>(
                             });
                         }
 
-                        return response.json().then(responseData => {
+                        return response.text().then(text => {
+                            const responseData = text
+                                ? JSON.parse(text)
+                                : null;
                             if (!isConnectionClosed) {
                                 messages.next({
                                     url: data.url,
@@ -67,6 +70,7 @@ export function createRestConnector<Message extends IRestMessage>(
                         });
                     }).catch(error => {
                         if (!isConnectionClosed) {
+                            console.error('Error', error);
                             observer.error({
                                 errorStatus: error.status,
                                 errorCode: error.errorCode,
