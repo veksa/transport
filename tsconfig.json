@@ -9,7 +9,8 @@
       "dom",
       "es2019"
     ],
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "ignoreDeprecations": "6.0"
   },
   "include": ["./src"]
 }
