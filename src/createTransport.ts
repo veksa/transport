@@ -1,6 +1,6 @@
 import {firstValueFrom} from 'rxjs';
 import {sendRequest} from './_helpers/sendRequest';
-import {ITransport, ITransportAdapter, ITransportApi, IMessage} from './interfaces';
+import {IMessage, ITransport, ITransportAdapter, ITransportApi} from './interfaces';
 import {ILogger} from '@veksa/logger';
 
 export const createTransport = <Type extends string, Message extends IMessage>(

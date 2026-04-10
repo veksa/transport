@@ -1,6 +1,6 @@
 import {Observable, race, throwError} from 'rxjs';
 import {filter, mergeMap} from 'rxjs/operators';
-import {ITransportAdapter, ITransportAdapterMeta, TransportState, IMessage} from '../interfaces';
+import {IMessage, ITransportAdapter, ITransportAdapterMeta, TransportState} from '../interfaces';
 import {v4} from 'uuid';
 
 export const sendRequest = <Message extends IMessage>(

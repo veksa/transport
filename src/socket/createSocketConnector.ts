@@ -39,7 +39,7 @@ export function createSocketConnector<Payload extends MessagePayload>(
             }
         };
 
-        socket.onmessage = (message: {data: Payload}): void => {
+        socket.onmessage = (message: { data: Payload }): void => {
             messages.next(message.data);
         };
 
@@ -48,11 +48,11 @@ export function createSocketConnector<Payload extends MessagePayload>(
 
             observer.error({
                 errorCode: 'SocketError',
-                description: (event as {message?: string}).message,
+                description: (event as { message?: string }).message,
             } as unknown);
         };
 
-        socket.onclose = (event: {code: number; reason: string}): void => {
+        socket.onclose = (event: { code: number; reason: string }): void => {
             // prevent observer.complete() being called after observer.error(...)
             if (isSocketClosed) {
                 return;
