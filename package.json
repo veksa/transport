@@ -14,7 +14,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:veksa/transport.git"
+    "url": "git+ssh://git@github.com/veksa/transport.git"
   },
   "main": "./dist/cjs/index.cjs",
   "types": "./dist/index.d.ts",
