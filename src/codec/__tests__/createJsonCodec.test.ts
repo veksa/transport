@@ -23,7 +23,7 @@ describe('createJsonCodec', () => {
     });
 
     describe('with binaryKeys', () => {
-        const codec = createJsonCodec(() => ['chunk']);
+        const codec = createJsonCodec(() => ['payload.chunk']);
         const makeChunk = (values: number[]) => new Uint8Array(values);
 
         it('encodes Uint8Array field as base64 string', () => {
@@ -70,7 +70,7 @@ describe('createJsonCodec', () => {
         });
 
         it('handles multiple binaryKeys', () => {
-            const codec3 = createJsonCodec(() => ['chunk', 'thumbnail']);
+            const codec3 = createJsonCodec(() => ['payload.chunk', 'payload.thumbnail']);
             const message = {
                 payloadType: 1,
                 clientMsgId: 'abc',
@@ -88,7 +88,7 @@ describe('createJsonCodec', () => {
                 clientMsgId: string;
                 payload: { chunk: Uint8Array | string }
             }>(
-                message => message.payloadType === UPLOAD_VIDEO_REQ ? ['chunk'] : [],
+                message => message.payloadType === UPLOAD_VIDEO_REQ ? ['payload.chunk'] : [],
             );
 
             const uploadMsg = {payloadType: UPLOAD_VIDEO_REQ, clientMsgId: 'a', payload: {chunk: makeChunk([1, 2, 3])}};
@@ -102,6 +102,73 @@ describe('createJsonCodec', () => {
         });
 
         it('handles empty Uint8Array', () => {
+            const message = {payloadType: 1, clientMsgId: 'abc', payload: {chunk: new Uint8Array(0)}};
+            const decoded = codec.decode(codec.encode(message) as string) as typeof message;
+            expect(decoded.payload.chunk).toBeInstanceOf(Uint8Array);
+            expect(decoded.payload.chunk.length).toBe(0);
+        });
+    });
+
+    describe('with nested binaryKeys', () => {
+        const codec = createJsonCodec(() => ['payload.chunk']);
+        const makeChunk = (values: number[]) => new Uint8Array(values);
+
+        it('encodes nested Uint8Array field as base64 string', () => {
+            const chunk = makeChunk([72, 101, 108, 108, 111]);
+            const message = {payloadType: 1, clientMsgId: 'abc', payload: {chunk}};
+            const parsed = JSON.parse(codec.encode(message) as string);
+            expect(typeof parsed.payload.chunk).toBe('string');
+            expect(parsed.payload.chunk).toBe(btoa('Hello'));
+        });
+
+        it('decodes nested base64 string back to Uint8Array', () => {
+            const chunk = makeChunk([72, 101, 108, 108, 111]);
+            const message = {payloadType: 1, clientMsgId: 'abc', payload: {chunk}};
+            const decoded = codec.decode(codec.encode(message) as string) as typeof message;
+            expect(decoded.payload.chunk).toBeInstanceOf(Uint8Array);
+            expect(Array.from(decoded.payload.chunk)).toEqual([72, 101, 108, 108, 111]);
+        });
+
+        it('handles deeply nested paths', () => {
+            const codecDeep = createJsonCodec(() => ['payload.data.binary']);
+            const chunk = makeChunk([1, 2, 3]);
+            const message = {clientMsgId: 'test', payload: {data: {binary: chunk}}};
+            const decoded = codecDeep.decode(codecDeep.encode(message) as string) as typeof message;
+            expect(decoded.payload.data.binary).toBeInstanceOf(Uint8Array);
+            expect(Array.from(decoded.payload.data.binary)).toEqual([1, 2, 3]);
+        });
+
+        it('handles multiple nested binaryKeys', () => {
+            const codecMulti = createJsonCodec(() => ['payload.chunk', 'payload.thumbnail']);
+            const message = {
+                payloadType: 1,
+                clientMsgId: 'abc',
+                payload: {chunk: makeChunk([1, 2, 3]), thumbnail: makeChunk([4, 5, 6])}
+            };
+            const decoded = codecMulti.decode(codecMulti.encode(message) as string) as typeof message;
+            expect(Array.from(decoded.payload.chunk)).toEqual([1, 2, 3]);
+            expect(Array.from(decoded.payload.thumbnail)).toEqual([4, 5, 6]);
+        });
+
+        it('round-trips nested large chunk (> 8192 bytes)', () => {
+            const size = 20000;
+            const original = new Uint8Array(size);
+            for (let i = 0; i < size; i++) original[i] = i % 256;
+            const message = {payloadType: 1, clientMsgId: 'abc', payload: {chunk: original}};
+            const decoded = codec.decode(codec.encode(message) as string) as typeof message;
+            expect(decoded.payload.chunk).toBeInstanceOf(Uint8Array);
+            expect(decoded.payload.chunk.length).toBe(size);
+            expect(Array.from(decoded.payload.chunk)).toEqual(Array.from(original));
+        });
+
+        it('does not affect non-binary nested fields', () => {
+            const message = {payloadType: 42, clientMsgId: 'xyz', payload: {foo: 'bar', num: 123}};
+            const decoded = codec.decode(codec.encode(message) as string) as typeof message;
+            expect(decoded.payload.foo).toBe('bar');
+            expect(decoded.payload.num).toBe(123);
+        });
+
+        it('handles empty nested Uint8Array', () => {
             const message = {payloadType: 1, clientMsgId: 'abc', payload: {chunk: new Uint8Array(0)}};
             const decoded = codec.decode(codec.encode(message) as string) as typeof message;
             expect(decoded.payload.chunk).toBeInstanceOf(Uint8Array);

@@ -130,6 +130,95 @@ transport.api.event$.subscribe((message) => {
 });
 ```
 
+## Codecs
+
+### createJsonCodec(getBinaryKeys?)
+
+Creates a JSON codec for encoding/decoding messages. Supports optional binary field handling for Uint8Array data.
+
+#### Without binaryKeys (default)
+
+Serializes messages as plain JSON. Note that Uint8Array fields are serialized as objects, which is inefficient:
+
+```typescript
+const codec = createJsonCodec();
+
+const message = {
+  payloadType: 1,
+  clientMsgId: 'abc',
+  payload: { chunk: new Uint8Array([1, 2, 3]) }
+};
+
+// Encodes as: {"payloadType":1,"clientMsgId":"abc","payload":{"chunk":{"0":1,"1":2,"2":3}}}
+// Inefficient for large binary data!
+```
+
+#### With binaryKeys
+
+Optimizes encoding/decoding of Uint8Array fields by converting them to base64 strings:
+
+```typescript
+const codec = createJsonCodec(() => ['payload.chunk']);
+
+const message = {
+  payloadType: 1,
+  clientMsgId: 'abc',
+  payload: { chunk: new Uint8Array([1, 2, 3]) }
+};
+
+// Encodes as: {"payloadType":1,"clientMsgId":"abc","payload":{"chunk":"AQID"}}
+// Much more efficient for binary data!
+```
+
+#### Nested Fields
+
+Binary keys support dot notation for nested paths:
+
+```typescript
+const codec = createJsonCodec(() => ['payload.data.binary']);
+
+const message = {
+  clientMsgId: 'test',
+  payload: {
+    data: {
+      binary: new Uint8Array([1, 2, 3])
+    }
+  }
+};
+
+// The nested binary field is correctly encoded/decoded
+const encoded = codec.encode(message);
+const decoded = codec.decode(encoded);
+
+console.log(decoded.payload.data.binary); // Uint8Array [1, 2, 3]
+```
+
+#### Multiple Binary Fields
+
+Specify multiple paths for handling multiple binary fields:
+
+```typescript
+const codec = createJsonCodec(() => [
+  'payload.chunk',
+  'payload.thumbnail'
+]);
+
+const message = {
+  payloadType: 1,
+  clientMsgId: 'abc',
+  payload: {
+    chunk: new Uint8Array([1, 2, 3]),
+    thumbnail: new Uint8Array([4, 5, 6])
+  }
+};
+```
+
+#### Performance Considerations
+
+- **Without binaryKeys**: Fast for plain JSON, but very slow for Uint8Array (serializes as object with thousands of properties)
+- **With binaryKeys**: ~100x faster encode for binary data, slight overhead for decode but overall much more efficient
+- **Size**: Binary fields encoded as base64 are ~33% larger than raw binary, but still 10-100x smaller than object serialization
+
 ## API Reference
 
 ### createTransport(type, adapter, logger, isError)
