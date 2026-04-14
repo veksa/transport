@@ -1,22 +1,22 @@
 import {Observable, Subject, Subscription} from 'rxjs';
 import {IPostMessage} from './post.interface';
 
-export type GetHostResponses<Message = IPostMessage> = (input: Observable<Message>) => Observable<Message>;
+export type GetHostResponses = (input: Observable<string | ArrayBuffer>) => Observable<string | ArrayBuffer>;
 
-export function createPostConnector<Message extends IPostMessage>(
+export function createPostConnector(
     type: 'message-to-host' | 'message-from-host',
     frame?: HTMLIFrameElement,
-): Observable<GetHostResponses<Message>> {
+): Observable<GetHostResponses> {
     const directType = type;
     const oppositeType = type === 'message-to-host'
         ? 'message-from-host'
         : 'message-to-host';
 
-    return new Observable<GetHostResponses<Message>>(observer => {
+    return new Observable<GetHostResponses>(observer => {
         let subscription: Subscription;
-        const messages = new Subject<Message>();
+        const messages = new Subject<string | ArrayBuffer>();
 
-        const getHostResponses: GetHostResponses<Message> = (input: Observable<Message>) => {
+        const getHostResponses: GetHostResponses = (input: Observable<string | ArrayBuffer>) => {
             subscription = input.subscribe(data => {
                 if (window !== window.parent) { // iframe
                     if (directType === 'message-to-host') {

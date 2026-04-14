@@ -2,7 +2,7 @@ import {BehaviorSubject, share, Subject, Subscription, switchMap} from 'rxjs';
 import {catchError} from 'rxjs/operators';
 import {createPostConnector} from './createPostConnector';
 import {ILogger} from '@veksa/logger';
-import {ITransportAdapter, TransportState} from '../interfaces';
+import {ITransportAdapter, ITransportCodec, TransportState} from '../interfaces';
 import {IPostMessage} from './post.interface';
 
 interface IMessageAdapterParams<Message extends IPostMessage> {
@@ -10,6 +10,7 @@ interface IMessageAdapterParams<Message extends IPostMessage> {
     frame?: HTMLIFrameElement;
     prefix: string;
     prefixColor?: string;
+    codec: ITransportCodec<Message>;
     getMessageName: (message: IPostMessage) => string;
     logger: ILogger<Message>;
 }
@@ -17,7 +18,7 @@ interface IMessageAdapterParams<Message extends IPostMessage> {
 export const createPostAdapter = <Message extends IPostMessage>(
     params: IMessageAdapterParams<Message>,
 ): ITransportAdapter<Message, Message, Message> => {
-    const {type, frame, prefix, prefixColor, getMessageName, logger} = params;
+    const {type, frame, prefix, prefixColor, codec, getMessageName, logger} = params;
 
     const messages: Record<string /* clientMsgId */, string /* clientMsgId */> = {};
 
@@ -25,9 +26,9 @@ export const createPostAdapter = <Message extends IPostMessage>(
 
     const data$ = new Subject<Message>();
     const event$ = new Subject<Message>();
-    const message$ = new Subject<Message>();
+    const message$ = new Subject<string | ArrayBuffer>();
 
-    const host = createPostConnector<Message>(type, frame).pipe(
+    const host = createPostConnector(type, frame).pipe(
         switchMap(getResponses => {
             if (type === 'message-to-host') {
                 logger.info(`[${prefix}] connected to host`);
@@ -52,17 +53,23 @@ export const createPostAdapter = <Message extends IPostMessage>(
 
     const connect = () => {
         subscription = host.subscribe({
-            next: message => {
+            next: data => {
                 try {
-                    if (message !== undefined) {
-                        const messageName = getMessageName(message);
+                    if (data !== undefined) {
+                        const message = codec.decode(data);
 
-                        if (messages[message.clientMsgId]) {
-                            logger.response(message, {prefix, prefixColor, messageName});
-                            data$.next(message);
+                        if (message) {
+                            const messageName = getMessageName(message);
+
+                            if (messages[message.clientMsgId]) {
+                                logger.response(message, {prefix, prefixColor, messageName});
+                                data$.next(message);
+                            } else {
+                                logger.event(message, {prefix, prefixColor, messageName});
+                                event$.next(message);
+                            }
                         } else {
-                            logger.event(message, {prefix, prefixColor, messageName});
-                            event$.next(message);
+                            logger.error(`[${prefix}] invalid decode`, data);
                         }
                     }
                 } catch (error: unknown) {
@@ -101,7 +108,13 @@ export const createPostAdapter = <Message extends IPostMessage>(
             logger.event(message, {prefix, prefixColor, messageName});
         }
 
-        message$.next(message);
+        const data = codec.encode(message);
+
+        if (data) {
+            message$.next(data);
+        } else {
+            logger.error(`[${prefix}] invalid encode`, data);
+        }
     };
 
     return {

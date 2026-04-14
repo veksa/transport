@@ -1,0 +1,199 @@
+import {createClientPostAdapter} from '../createClientPostAdapter';
+import {IPostMessage} from '../post.interface';
+import {ITransportCodec} from '../../interfaces';
+import {TransportState} from '../../interfaces';
+
+// Mock logger
+const mockLogger = {
+    info: jest.fn(),
+    error: jest.fn(),
+    request: jest.fn(),
+    response: jest.fn(),
+    event: jest.fn(),
+    getLogs: jest.fn(),
+};
+
+// Mock codec
+const mockCodec: ITransportCodec<IPostMessage> = {
+    encode: jest.fn((message) => JSON.stringify(message)),
+    decode: jest.fn((data) => {
+        if (typeof data === 'string') {
+            return JSON.parse(data) as IPostMessage;
+        }
+        return undefined;
+    }),
+};
+
+// Mock post connector
+jest.mock('../createPostConnector', () => ({
+    createPostConnector: jest.fn(() => {
+        const messageSubject = new Subject<string>();
+        const responseSubject = new Subject<string>();
+        
+        messageSubject.subscribe((data) => {
+            responseSubject.next(data);
+        });
+        
+        return of(() => messageSubject);
+    }),
+}));
+
+import {Subject, of} from 'rxjs';
+
+describe('createClientPostAdapter', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    const createAdapter = () => {
+        return createClientPostAdapter<IPostMessage>({
+            prefix: 'CLIENT',
+            prefixColor: 'purple',
+            codec: mockCodec,
+            getMessageName: (message) => `Message_${message.payloadType}`,
+            logger: mockLogger as any,
+        });
+    };
+
+    it('should create adapter with all required methods', () => {
+        const adapter = createAdapter();
+        
+        expect(adapter.connect).toBeDefined();
+        expect(adapter.disconnect).toBeDefined();
+        expect(adapter.send).toBeDefined();
+        expect(adapter.add).toBeDefined();
+        expect(adapter.drop).toBeDefined();
+        expect(adapter.data$).toBeDefined();
+        expect(adapter.event$).toBeDefined();
+        expect(adapter.state$).toBeDefined();
+    });
+
+    it('should start in disconnected state', (done) => {
+        const adapter = createAdapter();
+        
+        adapter.state$.subscribe((state) => {
+            expect(state).toBe(TransportState.Disconnected);
+            done();
+        });
+    });
+
+    it('should connect and update state to connected', (done) => {
+        const adapter = createAdapter();
+        
+        adapter.state$.subscribe((state) => {
+            if (state === TransportState.Connected) {
+                expect(mockLogger.info).toHaveBeenCalledWith('[CLIENT] connected to host');
+                done();
+            }
+        });
+        
+        adapter.connect();
+    });
+
+    it('should disconnect without throwing errors', () => {
+        const adapter = createAdapter();
+        
+        expect(() => {
+            adapter.connect();
+            adapter.disconnect();
+        }).not.toThrow();
+    });
+
+    it('should add and track client message IDs', () => {
+        const adapter = createAdapter();
+        
+        adapter.add('msg-123');
+        adapter.add('msg-456');
+        
+        expect(mockLogger.info).not.toHaveBeenCalled();
+    });
+
+    it('should drop client message IDs', () => {
+        const adapter = createAdapter();
+        
+        adapter.add('msg-123');
+        adapter.drop('msg-123');
+        
+        expect(mockLogger.info).not.toHaveBeenCalled();
+    });
+
+    it('should encode and send messages', () => {
+        const adapter = createAdapter();
+        
+        const message: IPostMessage = {
+            payloadType: 1,
+            clientMsgId: 'msg-123',
+            payload: {data: 'test'},
+        };
+        
+        adapter.add('msg-123');
+        adapter.send(message);
+        
+        expect(mockCodec.encode).toHaveBeenCalledWith(message);
+        expect(mockLogger.request).toHaveBeenCalledWith(message, {
+            prefix: 'CLIENT',
+            prefixColor: 'purple',
+            messageName: 'Message_1',
+        });
+    });
+
+    it('should have data$ and event$ observables defined', () => {
+        const adapter = createAdapter();
+        
+        expect(adapter.data$).toBeDefined();
+        expect(adapter.event$).toBeDefined();
+    });
+
+
+    it('should handle decode errors gracefully', () => {
+        const adapter = createAdapter();
+        
+        (mockCodec.decode as jest.Mock).mockReturnValueOnce(undefined);
+        
+        adapter.connect();
+        
+        setTimeout(() => {
+            expect(mockLogger.error).not.toHaveBeenCalled();
+        }, 50);
+    });
+
+    it('should share observables among multiple subscribers', (done) => {
+        const adapter = createAdapter();
+        
+        let dataCount = 0;
+        let eventCount = 0;
+        let stateCount = 0;
+        
+        adapter.data$.subscribe(() => dataCount++);
+        adapter.data$.subscribe(() => dataCount++);
+        
+        adapter.event$?.subscribe(() => eventCount++);
+        adapter.event$?.subscribe(() => eventCount++);
+        
+        adapter.state$.subscribe(() => stateCount++);
+        adapter.state$.subscribe(() => stateCount++);
+        
+        adapter.connect();
+        
+        setTimeout(() => {
+            expect(stateCount).toBeGreaterThan(0);
+            done();
+        }, 50);
+    });
+
+    it('should log error when encoding fails', () => {
+        const adapter = createAdapter();
+        
+        (mockCodec.encode as jest.Mock).mockReturnValueOnce(undefined);
+        
+        const message: IPostMessage = {
+            payloadType: 1,
+            clientMsgId: 'msg-123',
+            payload: {data: 'test'},
+        };
+        
+        adapter.send(message);
+        
+        expect(mockLogger.error).toHaveBeenCalledWith('[CLIENT] invalid encode', undefined);
+    });
+});

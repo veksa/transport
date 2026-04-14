@@ -1,4 +1,4 @@
-import {ITransportAdapter} from '../interfaces';
+import {ITransportAdapter, ITransportCodec} from '../interfaces';
 import {createPostAdapter} from './createPostAdapter';
 import {ILogger} from '@veksa/logger';
 import {IPostMessage} from './post.interface';
@@ -6,6 +6,7 @@ import {IPostMessage} from './post.interface';
 interface IClientAdapterParams<Message extends IPostMessage> {
     prefix: string;
     prefixColor?: string;
+    codec: ITransportCodec<Message>;
     getMessageName: (message: IPostMessage) => string;
     logger: ILogger<Message>;
 }
@@ -13,11 +14,11 @@ interface IClientAdapterParams<Message extends IPostMessage> {
 export const createClientPostAdapter = <Message extends IPostMessage>(
     params: IClientAdapterParams<Message>,
 ): ITransportAdapter<Message, Message, Message> => {
-    const {prefix, prefixColor, getMessageName, logger} = params;
+    const {prefix, prefixColor, codec, getMessageName, logger} = params;
 
     return createPostAdapter({
         type: 'message-to-host',
-        prefix, prefixColor, getMessageName,
+        prefix, prefixColor, codec, getMessageName,
         logger,
     });
 };
