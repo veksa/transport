@@ -1,6 +1,5 @@
 import {createHostPostAdapter} from '../createHostPostAdapter';
 import {IPostMessage} from '../post.interface';
-import {ITransportCodec} from '../../interfaces';
 import {TransportState} from '../../interfaces';
 
 // Mock logger
@@ -13,16 +12,6 @@ const mockLogger = {
     getLogs: jest.fn(),
 };
 
-// Mock codec
-const mockCodec: ITransportCodec<IPostMessage> = {
-    encode: jest.fn((message) => JSON.stringify(message)),
-    decode: jest.fn((data) => {
-        if (typeof data === 'string') {
-            return JSON.parse(data) as IPostMessage;
-        }
-        return undefined;
-    }),
-};
 
 // Mock post connector
 jest.mock('../createPostConnector', () => ({
@@ -50,7 +39,6 @@ describe('createHostPostAdapter', () => {
             frame,
             prefix: 'HOST',
             prefixColor: 'orange',
-            codec: mockCodec,
             getMessageName: (message) => `Message_${message.payloadType}`,
             logger: mockLogger as any,
         });
@@ -118,7 +106,7 @@ describe('createHostPostAdapter', () => {
         expect(mockLogger.info).not.toHaveBeenCalled();
     });
 
-    it('should encode and send messages', () => {
+    it('should send messages', () => {
         const adapter = createAdapter();
         
         const message: IPostMessage = {
@@ -130,7 +118,6 @@ describe('createHostPostAdapter', () => {
         adapter.add('msg-123');
         adapter.send(message);
         
-        expect(mockCodec.encode).toHaveBeenCalledWith(message);
         expect(mockLogger.request).toHaveBeenCalledWith(message, {
             prefix: 'HOST',
             prefixColor: 'orange',
@@ -146,17 +133,6 @@ describe('createHostPostAdapter', () => {
     });
 
 
-    it('should handle decode errors gracefully', () => {
-        const adapter = createAdapter();
-        
-        (mockCodec.decode as jest.Mock).mockReturnValueOnce(undefined);
-        
-        adapter.connect();
-        
-        setTimeout(() => {
-            expect(mockLogger.error).not.toHaveBeenCalled();
-        }, 50);
-    });
 
     it('should share observables among multiple subscribers', (done) => {
         const adapter = createAdapter();
@@ -182,21 +158,6 @@ describe('createHostPostAdapter', () => {
         }, 50);
     });
 
-    it('should log error when encoding fails', () => {
-        const adapter = createAdapter();
-        
-        (mockCodec.encode as jest.Mock).mockReturnValueOnce(undefined);
-        
-        const message: IPostMessage = {
-            payloadType: 1,
-            clientMsgId: 'msg-123',
-            payload: {data: 'test'},
-        };
-        
-        adapter.send(message);
-        
-        expect(mockLogger.error).toHaveBeenCalledWith('[HOST] invalid encode', undefined);
-    });
 
     it('should work with optional frame parameter', () => {
         const mockFrame = {} as HTMLIFrameElement;
