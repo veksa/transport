@@ -107,7 +107,8 @@ export const createPostAdapter = <Message extends IPostMessage>(
     return {
         data$: data$.asObservable().pipe(share()),
         event$: event$.asObservable().pipe(share()),
-        state$: state$.asObservable().pipe(share()),
+        // A BehaviorSubject already multicasts and replays the current state to a late subscriber.
+        state$: state$.asObservable(),
         connect,
         disconnect,
         add,

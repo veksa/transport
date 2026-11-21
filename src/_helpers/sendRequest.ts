@@ -54,7 +54,7 @@ export const sendRequest = <Message extends IMessage>(
     });
 
     const disconnection$ = adapter.state$.pipe(
-        filter(state => state === TransportState.Disconnected),
+        filter(state => state !== TransportState.Connected),
         mergeMap(() => {
             adapter.drop(clientMsgId);
 
@@ -65,8 +65,10 @@ export const sendRequest = <Message extends IMessage>(
         }),
     );
 
+    // disconnection$ goes first: state$ replays the current state, so a request made while the transport
+    // is not connected fails at once with ClosedConnection and is never handed to the adapter.
     return race(
-        request$,
         disconnection$,
+        request$,
     );
 };

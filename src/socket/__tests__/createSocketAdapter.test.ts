@@ -122,6 +122,8 @@ describe('createSocketAdapter', () => {
 
     it('should encode and send messages', () => {
         const adapter = createAdapter();
+
+        adapter.connect();
         
         const message: ISocketMessage = {
             payloadType: 1,
@@ -151,6 +153,8 @@ describe('createSocketAdapter', () => {
     it('should log error when encoding fails', () => {
         const adapter = createAdapter();
         
+        adapter.connect();
+
         (mockCodec.encode as jest.Mock).mockReturnValueOnce(undefined);
         
         const message: ISocketMessage = {

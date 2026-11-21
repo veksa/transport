@@ -112,7 +112,8 @@ export const createRestAdapter = <Message extends IRestMessage>(
 
     return {
         data$: data$.asObservable().pipe(share()),
-        state$: state$.asObservable().pipe(share()),
+        // A BehaviorSubject already multicasts and replays the current state to a late subscriber.
+        state$: state$.asObservable(),
         connect,
         disconnect,
         add,

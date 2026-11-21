@@ -111,6 +111,16 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
 
     const send = (message: Message) => {
         if (message) {
+            if (state$.getValue() !== TransportState.Connected) {
+                logger.info(`[${prefix}] socket is not connected, message was not sent`, message);
+
+                // Nothing listens to message$ while the socket is down: throw rather than drop the message.
+                throw {
+                    errorCode: 'ClosedConnection',
+                    description: `Message ${JSON.stringify(message)} was not sent. Connection is closed`,
+                };
+            }
+
             const messageName = getMessageName(message);
 
             logger.request(message, {prefix, prefixColor, messageName});
@@ -130,7 +140,8 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
     return {
         data$: data$.asObservable().pipe(share()),
         event$: event$.asObservable().pipe(share()),
-        state$: state$.asObservable().pipe(share()),
+        // A BehaviorSubject already multicasts and replays the current state to a late subscriber.
+        state$: state$.asObservable(),
         connect,
         disconnect,
         add,

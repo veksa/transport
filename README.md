@@ -236,8 +236,10 @@ Creates a new transport instance.
 
 - `connect()`: Establishes a connection
 - `disconnect()`: Terminates the connection
-- `state$`: Observable of transport connection state
-- `api.send(message)`: Sends a message and returns a Promise with the response payload
+- `state$`: Observable of transport connection state; a new subscriber gets the current state at once
+- `api.send(message)`: Sends a message and returns a Promise with the response payload. It rejects with
+  `{errorCode: 'ClosedConnection', description}` when the transport is not `Connected` at the time of the call (nothing
+  is sent) or when the connection drops while the request is in flight
 - `api.event$`: Observable of incoming events
 - `getLogs()`: Retrieves logs if using @veksa/logger
 
