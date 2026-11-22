@@ -1,0 +1,52 @@
+# A version tag (`yarn release 0.0.24` makes and pushes it) publishes @veksa/transport to npm and makes a GitHub
+# release. npm gets the version staged, not published: a maintainer approves it with 2FA
+# (`npm stage list @veksa/transport`, then `npm stage approve <id>`), and only then can it be installed. Needs the
+# NPM_TOKEN secret: a granular token with "Read and write (stage only)" on @veksa.
+name: release
+
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+*']
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  npm:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+      - run: corepack enable
+      - name: The tag matches package.json
+        run: test "$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - run: yarn install --immutable
+      - run: yarn build
+      # `npm stage` needs npm 11.15 or later; Node 22 comes with npm 10.
+      - run: npm install --global npm@11
+      # A pre-release (1.2.0-beta.1) goes to the `next` dist-tag.
+      - run: npm stage publish --provenance --access public --ignore-scripts --tag ${{ contains(github.ref_name, '-') && 'next' || 'latest' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  github:
+    needs: npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes $([[ "$GITHUB_REF_NAME" == *-* ]] && echo --prerelease)
+        env:
+          GH_TOKEN: ${{ github.token }}

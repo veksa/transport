@@ -1,0 +1,57 @@
+# Checks on every push to master and every pull request; the release workflow runs them again on its tag.
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  node:
+    name: node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+      # Node first, then corepack; setup-node's own cache would call the image's yarn 1 before corepack is on.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn compile
+      - run: yarn test
+
+  package:
+    name: npm package contents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn build
+      - name: The package carries what its users need
+        run: |
+          npm pack --dry-run --json --ignore-scripts > pack.json
+          node -e '
+            const files = new Set(require("./pack.json")[0].files.map(f => f.path));
+            const need = ["package.json", "dist/index.mjs", "dist/cjs/index.cjs", "dist/index.d.ts"];
+            const missing = need.filter(f => !files.has(f));
+            if (missing.length) { console.error("missing from the package: " + missing.join(", ")); process.exit(1); }
+            console.log(files.size + " files");'
