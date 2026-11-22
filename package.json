@@ -33,6 +33,10 @@
     "testEnvironment": "node",
     "testMatch": [
       "**/*.test.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "\\.perf\\."
     ]
   },
   "files": [
@@ -53,6 +57,7 @@
     "build": "yarn clean && tsup",
     "compile": "tsc --noEmit",
     "test": "jest",
+    "test:perf": "jest --testPathIgnorePatterns=/node_modules/ --testPathPatterns=\\.perf\\.",
     "check-all": "yarn compile && yarn test && yarn build",
     "release": "node scripts/release.mjs",
     "prepublishOnly": "yarn build"
