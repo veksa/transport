@@ -1,7 +1,7 @@
 import {BehaviorSubject, defer, race, share, Subject, Subscription, switchMap, throwError, timer} from 'rxjs';
 import {createSocketConnector} from './createSocketConnector';
 import {catchError, mergeMap} from 'rxjs/operators';
-import {ILogger} from '@veksa/logger';
+import type {ILogger} from '@veksa/logger';
 import {ITransportAdapter, ITransportCodec, TransportState} from '../interfaces';
 import {ISocketMessage} from './socket.interface';
 

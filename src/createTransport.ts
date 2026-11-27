@@ -1,7 +1,7 @@
 import {firstValueFrom, throwError, timeout} from 'rxjs';
 import {sendRequest} from './_helpers/sendRequest';
 import {IMessage, ISendOptions, ITransport, ITransportAdapter, ITransportApi, TransportErrorCode} from './interfaces';
-import {ILogger} from '@veksa/logger';
+import type {ILogger} from '@veksa/logger';
 
 /** How long a request waits for its reply by default when the transport is built from an options object, ms. */
 export const defaultRequestTimeout = 20_000;

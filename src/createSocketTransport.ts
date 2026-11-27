@@ -1,4 +1,4 @@
-import {ILogger} from '@veksa/logger';
+import type {ILogger} from '@veksa/logger';
 import {createSocketAdapter} from './socket/createSocketAdapter';
 import {createTransport} from './createTransport';
 import {createConnectionSupervisor} from './supervisor/createConnectionSupervisor';

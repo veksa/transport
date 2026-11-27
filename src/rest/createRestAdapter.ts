@@ -1,6 +1,6 @@
 import {BehaviorSubject, race, share, Subject, Subscription, switchMap, throwError, timer} from 'rxjs';
 import {catchError, mergeMap} from 'rxjs/operators';
-import {ILogger} from '@veksa/logger';
+import type {ILogger} from '@veksa/logger';
 import {createRestConnector} from './createRestConnector';
 import {ITransportAdapter, TransportState} from '../interfaces';
 import {IRestMessage} from './rest.interface';

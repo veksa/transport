@@ -1,6 +1,6 @@
 import {ITransportAdapter} from '../interfaces';
 import {createPostAdapter} from './createPostAdapter';
-import {ILogger} from '@veksa/logger';
+import type {ILogger} from '@veksa/logger';
 import {IPostMessage} from './post.interface';
 
 interface IClientAdapterParams<Message extends IPostMessage> {

@@ -1,5 +1,5 @@
 import {Observable} from 'rxjs';
-import {ILogger} from '@veksa/logger';
+import type {ILogger} from '@veksa/logger';
 
 export enum TransportState {
     Connected = 'Connected',

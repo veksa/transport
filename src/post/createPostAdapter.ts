@@ -1,7 +1,7 @@
 import {BehaviorSubject, share, Subject, Subscription, switchMap} from 'rxjs';
 import {catchError} from 'rxjs/operators';
 import {createPostConnector} from './createPostConnector';
-import {ILogger} from '@veksa/logger';
+import type {ILogger} from '@veksa/logger';
 import {ITransportAdapter, TransportState} from '../interfaces';
 import {IPostMessage} from './post.interface';
 

@@ -20,6 +20,11 @@ npm install @veksa/transport
 yarn add @veksa/transport
 ```
 
+`@veksa/logger` is an optional peer: it is used for types only (the `logger` parameter of the transports and
+adapters takes any object of its `ILogger` shape), so nothing loads it at runtime. Install it when you create
+transports with its `createLogger`; a package that only reads the frame and codec types (a server, for example)
+does not need it. Without it installed, compile with `skipLibCheck` on, since the bundled declarations name it.
+
 ## Features
 
 - A connection supervisor: reconnect with exponential backoff and jitter, liveness probes that drop a frozen

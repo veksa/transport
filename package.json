@@ -65,6 +65,11 @@
   "peerDependencies": {
     "@veksa/logger": "^1.0.12"
   },
+  "peerDependenciesMeta": {
+    "@veksa/logger": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.11",
