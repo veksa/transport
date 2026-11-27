@@ -1,4 +1,5 @@
 export {createTransport, defaultRequestTimeout, type ITransportParams} from './createTransport';
+export {createSocketTransport, type ISocketTransport, type ISocketTransportParams, type ISocketLivenessOptions} from './createSocketTransport';
 export {createJsonCodec} from './codec/createJsonCodec';
 export {createSocketAdapter, type ISocketAdapterParams} from './socket/createSocketAdapter';
 export {createRestAdapter} from './rest/createRestAdapter';
