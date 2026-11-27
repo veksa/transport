@@ -68,7 +68,7 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^25.6.0",
-    "@veksa/logger": "^1.0.14",
+    "@veksa/logger": "^1.1.0",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "rimraf": "^6.1.3",

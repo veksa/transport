@@ -1565,10 +1565,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@veksa/logger@npm:^1.0.14":
-  version: 1.0.14
-  resolution: "@veksa/logger@npm:1.0.14"
-  checksum: 10/912b5d80ea988e29990c18a47d63eda426891dda9bc3a539e17a283dc42394ec7ca156982e688e29387b214657e70084e0caf470645532d38fe96835002bf362
+"@veksa/logger@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@veksa/logger@npm:1.1.0"
+  checksum: 10/6dad879ceee5cd72c44798c4e9504022905f9d077b1b937c1ae11faf01701ce2ae4fa34a49b17b9f3636cd358b72634702d243cba43410ab232141d22cbf541e
   languageName: node
   linkType: hard
 
@@ -1578,7 +1578,7 @@ __metadata:
   dependencies:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^25.6.0"
-    "@veksa/logger": "npm:^1.0.14"
+    "@veksa/logger": "npm:^1.1.0"
     jest: "npm:^30.3.0"
     jest-environment-jsdom: "npm:^30.3.0"
     rimraf: "npm:^6.1.3"
