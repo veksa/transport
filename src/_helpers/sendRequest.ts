@@ -1,6 +1,6 @@
 import {Observable, race, throwError} from 'rxjs';
 import {filter, mergeMap} from 'rxjs/operators';
-import {IMessage, ITransportAdapter, ITransportAdapterMeta, TransportState} from '../interfaces';
+import {IMessage, ITransportAdapter, ITransportAdapterMeta, TransportErrorCode, TransportState} from '../interfaces';
 import {v4} from 'uuid';
 
 export const sendRequest = <Message extends IMessage>(
@@ -59,7 +59,7 @@ export const sendRequest = <Message extends IMessage>(
             adapter.drop(clientMsgId);
 
             return throwError(() => ({
-                errorCode: 'ClosedConnection',
+                errorCode: TransportErrorCode.ClosedConnection,
                 description: `Message ${JSON.stringify(message)} was not sent. Connection is closed`,
             }));
         }),
