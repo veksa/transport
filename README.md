@@ -22,6 +22,9 @@ yarn add @veksa/transport
 
 ## Features
 
+- A connection supervisor: reconnect with exponential backoff and jitter, liveness probes that drop a frozen
+  socket, fallback addresses, no redial after a deliberate disconnect, online/offline and foreground inputs
+- Request timeouts
 - Stream-based messaging with RxJS observables
 - Pluggable transport adapters (socket, host, client)
 - Cross-window and iframe messaging support
@@ -33,28 +36,73 @@ yarn add @veksa/transport
 
 ## Basic Usage
 
+### Supervised socket transport
+
+`createSocketTransport` is a socket transport that keeps itself connected: `connect()` once, and it redials every
+drop until `disconnect()`.
+
+```typescript
+import { createSocketTransport, createJsonCodec, DropReason } from '@veksa/transport';
+import { createLogger } from '@veksa/logger';
+
+const transport = createSocketTransport({
+  type: 'server',
+  url: ['wss://api.example.test/ws', 'wss://relay.example.test/ws'], // primary, then fallbacks; or one string
+  protocol: 'myapp-v1',
+  codec: createJsonCodec(),
+  logger: createLogger(true),
+  getMessageName: (message) => `Message-${message.payloadType}`,
+  prefix: 'S',
+  isError: (message) => message.payloadType === 50,
+  liveness: { payloadType: 3 }, // echoed by the server; probe every 15 s, drop after 10 s without the echo
+});
+
+transport.connect();
+
+transport.state$.subscribe((state) => console.log('state', state)); // Connecting, Connected, Disconnected
+
+transport.events$.subscribe((event) => {
+  if (event.type === 'connected') {
+    // a new connection: sign in on it
+  }
+  if (event.type === 'dropped' && event.reason === DropReason.Stalled) {
+    // the liveness echo did not come: the network froze the socket; it is being redialed
+  }
+});
+
+// Platform inputs (the core imports no framework)
+window.addEventListener('online', () => transport.setOnline(true));
+window.addEventListener('offline', () => transport.setOnline(false));
+document.addEventListener('visibilitychange', () => transport.setForeground(document.visibilityState === 'visible'));
+
+// Requests time out after 20 s by default
+const response = await transport.api.send({ payloadType: 1, payload: { userId: 123 }, clientMsgId: '' });
+
+transport.reconnect();  // drop and dial a fresh connection now (a sign-out)
+transport.disconnect(); // stop: nothing is redialed until connect()
+```
+
+Moving from hand-written reconnect, heartbeat and ping code: [docs/MIGRATION.md](docs/MIGRATION.md).
+
 ### Socket Transport
 
 ```typescript
 import { createTransport, createJsonCodec, createSocketAdapter } from '@veksa/transport';
 
-// Create transport with socket adapter
-const transport = createTransport({
-  adapter: createSocketAdapter({
-    url: 'wss://example.com/socket',
-    codec: createJsonCodec(),
-  }),
+const adapter = createSocketAdapter({
+  prefix: 'S',
+  url: 'wss://api.example.test/socket',
+  protocol: 'myapp-v1',
+  codec: createJsonCodec(),
+  getMessageName: (message) => `Message-${message.payloadType}`,
+  logger,
 });
 
-// Connect to the transport
+// A plain transport: it connects when told and reports the state; nothing redials.
+const transport = createTransport({ type: 'server', adapter, logger });
+
 transport.connect();
 
-// Subscribe to state changes
-transport.state$.subscribe((state) => {
-  console.log('Transport state:', state);
-});
-
-// Send a message and get response
 transport.api.send({
   payloadType: 1,
   payload: { userId: 123 },
@@ -63,12 +111,10 @@ transport.api.send({
   console.log('Received response:', response);
 });
 
-// Subscribe to incoming events
 transport.api.event$.subscribe((message) => {
   console.log('Received event:', message);
 });
 
-// Disconnect when done
 transport.disconnect();
 ```
 
@@ -221,27 +267,64 @@ const message = {
 
 ## API Reference
 
-### createTransport(type, adapter, logger, isError)
+### createTransport(options)
 
 Creates a new transport instance.
 
-#### Parameters
-
 - `type`: A string identifier for the transport type
-- `adapter`: An implementation of `ITransportAdapter`
+- `adapter`: An implementation of `ITransportAdapter` (a supervised one included)
 - `logger`: An instance of `ILogger` from @veksa/logger
 - `isError`: Optional function to determine if a message represents an error
+- `requestTimeout`: ms a request waits for its reply before it fails with `RequestTimeout`; default 20000, `0` waits
+  for ever
+
+The positional form `createTransport(type, adapter, logger, isError)` still works, without a request timeout; it is
+deprecated.
 
 #### Transport Methods
 
 - `connect()`: Establishes a connection
 - `disconnect()`: Terminates the connection
 - `state$`: Observable of transport connection state; a new subscriber gets the current state at once
-- `api.send(message)`: Sends a message and returns a Promise with the response payload. It rejects with
+- `api.send(message, options?)`: Sends a message and returns a Promise with the response payload. It rejects with
   `{errorCode: 'ClosedConnection', description}` when the transport is not `Connected` at the time of the call (nothing
-  is sent) or when the connection drops while the request is in flight
+  is sent) or when the connection drops while the request is in flight, and with `{errorCode: 'RequestTimeout'}` when
+  no reply comes within the timeout (`options.timeout` overrides it for one request). `isClosedConnection`,
+  `isRequestTimeout` and `isTransportError` tell these apart from a reply
 - `api.event$`: Observable of incoming events
 - `getLogs()`: Retrieves logs if using @veksa/logger
+
+### createSocketTransport(options)
+
+A socket adapter under a connection supervisor behind a transport. Options: those of `createSocketAdapter` and
+`createTransport`, plus
+
+- `url`: one address or `[primary, ...fallbacks]`
+- `liveness`: `{payloadType, interval = 15000, timeout = 10000}`; without it the connection is not probed
+- `reconnect`: `{minDelay = 1000, maxDelay = 30000, factor = 2, jitter = 0.5, stableAfter = 10000, maxAttempts = Infinity}`
+- `routing`: `{failuresToLeave = 2, failureWindow = 600000, retryPrimaryAfter = 86400000, failuresToReturn = 3, storage?, storageKey = 'transport.route'}`
+- `handshakeTimeout` (5000), `requestTimeout` (20000)
+
+Besides the `ITransport` members it has
+
+- `events$`: `dialing`, `connected`, `dialFailed`, `dropped` (with a `DropReason`: `Closed`, `Stalled`, `Held`,
+  `Restart`, `Deliberate`), `retryScheduled`, `gaveUp`, `alive` (the liveness reply and its round trip), `route`
+- `status$` / `getStatus()`: the phase (`Stopped`, `Dialing`, `Open`, `Waiting`, `Offline`, `GaveUp`), address,
+  failed attempts in a row, connection generation, next attempt time
+- `reconnect()`: drop and dial a fresh connection now
+- `wake()`: dial now if waiting, probe if open
+- `probe()`: send a liveness probe now
+- `setOnline(online)`, `setForeground(foreground)`: platform inputs
+- `dispose()`: stop for good
+
+`disconnect()` is deliberate: the supervisor never redials after it. Every other drop is redialed. The full rule set
+is in [docs/MIGRATION.md](docs/MIGRATION.md#rules-and-defaults).
+
+### createConnectionSupervisor(options)
+
+The supervisor on its own, over any `ITransportAdapter`: `{adapter, addresses?, useAddress?, liveness?: {frame,
+interval, timeout}, reconnect?, routing?}`. It returns an adapter (hand it to `createTransport`) with the controls
+above.
 
 ### Adapter Types
 
@@ -251,10 +334,11 @@ Creates a WebSocket-based transport adapter.
 
 - `prefix`: Logger prefix for identifying messages
 - `prefixColor`: Optional color for log messages
-- `url`: WebSocket endpoint URL
+- `url`: WebSocket endpoint URL, or a function read at every connect
 - `protocol`: WebSocket protocol
+- `handshakeTimeout`: ms the socket may take to open, default 5000
 - `codec`: Message encoding/decoding implementation
-- `getPayloadName`: Function to convert payload type to a readable name
+- `getMessageName`: Function that names a message for the log
 - `logger`: Instance of @veksa/logger
 
 #### createHostAdapter(options)
