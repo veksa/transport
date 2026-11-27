@@ -48,9 +48,14 @@ export const createPostAdapter = <Message extends IPostMessage>(
         }),
     );
 
-    let subscription: Subscription;
+    let subscription: Subscription | undefined;
 
     const connect = () => {
+        // A second connect while one is open or opening would start a second connection and orphan the first.
+        if (subscription && !subscription.closed) {
+            return;
+        }
+
         subscription = host.subscribe({
             next: message => {
                 try {
@@ -82,6 +87,12 @@ export const createPostAdapter = <Message extends IPostMessage>(
 
     const disconnect = () => {
         subscription?.unsubscribe();
+
+        // Unsubscribing tears the connection down without completing it, so nothing else reports the drop:
+        // without this state$ stays Connected and requests in flight never fail.
+        if (state$.getValue() !== TransportState.Disconnected) {
+            state$.next(TransportState.Disconnected);
+        }
     };
 
     const add = (clientMsgId: string) => {

@@ -14,6 +14,9 @@ interface IFakeSocket {
 // The latest fake socket opened by the adapter; the test drives it by hand.
 let socket: IFakeSocket | undefined;
 
+// How many connections the adapter has opened (subscriptions to the connector), not how often it built one.
+let opened = 0;
+
 // uuid ships ESM only, which ts-jest does not transform; requests in this suite carry their own clientMsgId.
 jest.mock('uuid', () => ({v4: () => 'generated-id'}));
 
@@ -23,6 +26,7 @@ jest.mock('../createSocketConnector', () => ({
             const current: IFakeSocket = {observer, server: new Subject<string>(), sent: []};
 
             socket = current;
+            opened++;
 
             const subscriptions: { unsubscribe: () => void }[] = [];
 
@@ -88,6 +92,7 @@ describe('socket transport on connection loss', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         socket = undefined;
+        opened = 0;
     });
 
     it('replays the current state to a late subscriber of state$', () => {
@@ -176,6 +181,77 @@ describe('socket transport on connection loss', () => {
         transport.connect();
         closeSocket();
         transport.connect();
+
+        const response = transport.api.send(request);
+
+        socket!.server.next(JSON.stringify({...request, payload: {ok: true}}));
+
+        await expect(response).resolves.toEqual({ok: true});
+    });
+
+    it('reports Disconnected after disconnect()', () => {
+        const {transport} = createSubject();
+
+        const seen: TransportState[] = [];
+        const subscription = transport.state$.subscribe(state => seen.push(state));
+
+        transport.connect();
+        transport.disconnect();
+
+        expect(seen).toEqual([TransportState.Disconnected, TransportState.Connected, TransportState.Disconnected]);
+
+        subscription.unsubscribe();
+    });
+
+    it('does not report Disconnected twice when disconnect() is called while already disconnected', () => {
+        const {transport} = createSubject();
+
+        const seen: TransportState[] = [];
+        const subscription = transport.state$.subscribe(state => seen.push(state));
+
+        transport.disconnect();
+        transport.connect();
+        closeSocket();
+        transport.disconnect();
+
+        expect(seen).toEqual([TransportState.Disconnected, TransportState.Connected, TransportState.Disconnected]);
+
+        subscription.unsubscribe();
+    });
+
+    it('fails a request in flight with ClosedConnection on disconnect()', async () => {
+        const {transport} = createSubject();
+
+        transport.connect();
+
+        const response = transport.api.send(request);
+
+        transport.disconnect();
+
+        await expect(response).rejects.toEqual(closedConnection);
+    });
+
+    it('opens one connection when connect() is called twice', () => {
+        const {transport} = createSubject();
+
+        transport.connect();
+        const first = socket;
+        transport.connect();
+
+        expect(opened).toBe(1);
+        expect(socket).toBe(first);
+        expect(first!.observer.closed).toBe(false);
+    });
+
+    it('opens a new connection on connect() after disconnect()', async () => {
+        const {transport} = createSubject();
+
+        transport.connect();
+        const first = socket;
+        transport.disconnect();
+        transport.connect();
+
+        expect(socket).not.toBe(first);
 
         const response = transport.api.send(request);
 

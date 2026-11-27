@@ -57,9 +57,14 @@ export const createRestAdapter = <Message extends IRestMessage>(
         }),
     );
 
-    let subscription: Subscription;
+    let subscription: Subscription | undefined;
 
     const connect = () => {
+        // A second connect while one is open or opening would start a second connection and orphan the first.
+        if (subscription && !subscription.closed) {
+            return;
+        }
+
         subscription = connector.subscribe({
             next: message => {
                 try {
@@ -88,6 +93,12 @@ export const createRestAdapter = <Message extends IRestMessage>(
 
     const disconnect = () => {
         subscription?.unsubscribe();
+
+        // Unsubscribing tears the connection down without completing it, so nothing else reports the drop:
+        // without this state$ stays Connected and requests in flight never fail.
+        if (state$.getValue() !== TransportState.Disconnected) {
+            state$.next(TransportState.Disconnected);
+        }
     };
 
     const add = (clientMsgId: string) => {
