@@ -20,8 +20,8 @@ let opened = 0;
 // 'open' — the fake socket opens at once; 'pending' — it stays opening until the test settles it.
 let connectorMode: 'open' | 'pending' = 'open';
 
-// uuid ships ESM only, which ts-jest does not transform; requests in this suite carry their own clientMsgId.
-jest.mock('uuid', () => ({v4: () => 'generated-id'}));
+// Requests in this suite carry their own clientMsgId.
+jest.mock('../../_helpers/createMessageId', () => ({createMessageId: () => 'generated-id'}));
 
 jest.mock('../createSocketConnector', () => ({
     createSocketConnector: jest.fn(() => {

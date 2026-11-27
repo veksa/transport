@@ -4,7 +4,7 @@ import {ITransportAdapter, TransportErrorCode, TransportState} from '../interfac
 import {ISocketMessage} from '../socket/socket.interface';
 import {isClosedConnection, isRequestTimeout, isTransportError} from '../errors';
 
-jest.mock('uuid', () => ({v4: () => 'generated-id'}));
+jest.mock('../_helpers/createMessageId', () => ({createMessageId: () => 'generated-id'}));
 
 const logger = {getLogs: jest.fn()} as any;
 

@@ -17,7 +17,7 @@ const sockets: IFakeSocket[] = [];
 
 let nextId = 0;
 
-jest.mock('uuid', () => ({v4: () => `id-${++nextId}`}));
+jest.mock('../_helpers/createMessageId', () => ({createMessageId: () => `id-${++nextId}`}));
 
 jest.mock('../socket/createSocketConnector', () => ({
     createSocketConnector: jest.fn((url: string) => {

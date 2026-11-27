@@ -26,7 +26,6 @@ describe('@veksa/logger as an optional peer', () => {
             jest.doMock('@veksa/logger', () => {
                 throw new Error('Cannot find module @veksa/logger');
             }, {virtual: true});
-            jest.doMock('uuid', () => ({v4: () => 'id'}));
 
             const transport = require('../index');
             const codec = transport.createJsonCodec();

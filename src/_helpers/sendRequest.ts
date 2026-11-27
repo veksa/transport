@@ -1,7 +1,7 @@
 import {Observable, race, throwError} from 'rxjs';
 import {filter, mergeMap} from 'rxjs/operators';
 import {IMessage, ITransportAdapter, ITransportAdapterMeta, TransportErrorCode, TransportState} from '../interfaces';
-import {v4} from 'uuid';
+import {createMessageId} from './createMessageId';
 
 export const sendRequest = <Message extends IMessage>(
     adapter: ITransportAdapter<Message, Message, Message>,
@@ -10,7 +10,7 @@ export const sendRequest = <Message extends IMessage>(
 ): Observable<Message> => {
     const clientMsgId = message.clientMsgId
         ? message.clientMsgId
-        : v4();
+        : createMessageId();
 
     const request$ = new Observable<Message>(message$ => {
         if (!meta?.completed) {

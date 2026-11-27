@@ -7,8 +7,7 @@ import {createTransport} from '../../createTransport';
 
 let nextId = 0;
 
-// uuid ships ESM only, which ts-jest does not transform.
-jest.mock('uuid', () => ({v4: () => `id-${++nextId}`}));
+jest.mock('../../_helpers/createMessageId', () => ({createMessageId: () => `id-${++nextId}`}));
 
 const livenessType = 9;
 
