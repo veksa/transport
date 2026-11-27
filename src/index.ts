@@ -1,6 +1,6 @@
 export {createTransport} from './createTransport';
 export {createJsonCodec} from './codec/createJsonCodec';
-export {createSocketAdapter} from './socket/createSocketAdapter';
+export {createSocketAdapter, type ISocketAdapterParams} from './socket/createSocketAdapter';
 export {createRestAdapter} from './rest/createRestAdapter';
 export {createHostPostAdapter} from './post/createHostPostAdapter';
 export {createClientPostAdapter} from './post/createClientPostAdapter';

@@ -17,6 +17,9 @@ let socket: IFakeSocket | undefined;
 // How many connections the adapter has opened (subscriptions to the connector), not how often it built one.
 let opened = 0;
 
+// 'open' — the fake socket opens at once; 'pending' — it stays opening until the test settles it.
+let connectorMode: 'open' | 'pending' = 'open';
+
 // uuid ships ESM only, which ts-jest does not transform; requests in this suite carry their own clientMsgId.
 jest.mock('uuid', () => ({v4: () => 'generated-id'}));
 
@@ -27,6 +30,10 @@ jest.mock('../createSocketConnector', () => ({
 
             socket = current;
             opened++;
+
+            if (connectorMode === 'pending') {
+                return () => undefined;
+            }
 
             const subscriptions: { unsubscribe: () => void }[] = [];
 
@@ -93,6 +100,7 @@ describe('socket transport on connection loss', () => {
         jest.clearAllMocks();
         socket = undefined;
         opened = 0;
+        connectorMode = 'open';
     });
 
     it('replays the current state to a late subscriber of state$', () => {
@@ -198,7 +206,9 @@ describe('socket transport on connection loss', () => {
         transport.connect();
         transport.disconnect();
 
-        expect(seen).toEqual([TransportState.Disconnected, TransportState.Connected, TransportState.Disconnected]);
+        expect(seen).toEqual([
+            TransportState.Disconnected, TransportState.Connecting, TransportState.Connected, TransportState.Disconnected,
+        ]);
 
         subscription.unsubscribe();
     });
@@ -214,7 +224,9 @@ describe('socket transport on connection loss', () => {
         closeSocket();
         transport.disconnect();
 
-        expect(seen).toEqual([TransportState.Disconnected, TransportState.Connected, TransportState.Disconnected]);
+        expect(seen).toEqual([
+            TransportState.Disconnected, TransportState.Connecting, TransportState.Connected, TransportState.Disconnected,
+        ]);
 
         subscription.unsubscribe();
     });
@@ -258,6 +270,47 @@ describe('socket transport on connection loss', () => {
         socket!.server.next(JSON.stringify({...request, payload: {ok: true}}));
 
         await expect(response).resolves.toEqual({ok: true});
+    });
+
+    it('reports Connecting while the socket opens and Disconnected when it never opens', () => {
+        const {adapter} = createSubject();
+
+        const seen: TransportState[] = [];
+        const subscription = adapter.state$.subscribe(state => seen.push(state));
+
+        connectorMode = 'pending';
+        adapter.connect();
+
+        expect(seen).toEqual([TransportState.Disconnected, TransportState.Connecting]);
+
+        socket!.observer.error({errorCode: 'SocketError'});
+
+        expect(seen).toEqual([TransportState.Disconnected, TransportState.Connecting, TransportState.Disconnected]);
+
+        subscription.unsubscribe();
+    });
+
+    it('reads a url given as a function at every connect', () => {
+        const {createSocketConnector} = jest.requireMock('../createSocketConnector');
+        let url = 'ws://first.example.test';
+
+        const adapter = createSocketAdapter<ISocketMessage>({
+            prefix: 'TEST',
+            url: () => url,
+            protocol: 'ws',
+            codec,
+            getMessageName: message => `Message_${message.payloadType}`,
+            logger: mockLogger as any,
+        });
+
+        adapter.connect();
+        adapter.disconnect();
+        url = 'ws://second.example.test';
+        adapter.connect();
+
+        expect(createSocketConnector.mock.calls.map((call: unknown[]) => call[0])).toEqual([
+            'ws://first.example.test', 'ws://second.example.test',
+        ]);
     });
 
     it('throws ClosedConnection from adapter.send while disconnected instead of dropping the message', () => {

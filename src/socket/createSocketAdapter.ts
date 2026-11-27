@@ -1,4 +1,4 @@
-import {BehaviorSubject, race, share, Subject, Subscription, switchMap, throwError, timer} from 'rxjs';
+import {BehaviorSubject, defer, race, share, Subject, Subscription, switchMap, throwError, timer} from 'rxjs';
 import {createSocketConnector} from './createSocketConnector';
 import {catchError, mergeMap} from 'rxjs/operators';
 import {ILogger} from '@veksa/logger';
@@ -7,18 +7,27 @@ import {ISocketMessage} from './socket.interface';
 
 export const handshakeTimeout = 5000;
 
-interface ISocketAdapterParams<Message extends ISocketMessage> {
+export interface ISocketAdapterParams<Message extends ISocketMessage> {
     prefix: string;
     prefixColor?: string;
-    url: string;
+    /** The address, or a function read at every connect (a supervisor switching between addresses). */
+    url: string | (() => string);
     protocol: string;
+    /** How long a socket may take to open before the attempt fails, ms. Default 5000. */
+    handshakeTimeout?: number;
     codec: ITransportCodec<Message>;
     getMessageName: (message: ISocketMessage) => string;
     logger: ILogger<Message>;
 }
 
 export const createSocketAdapter = <Message extends ISocketMessage>(params: ISocketAdapterParams<Message>): ITransportAdapter<Message, Message, Message> => {
-    const {prefix, prefixColor, url, protocol, codec, getMessageName, logger} = params;
+    const {prefix, prefixColor, protocol, codec, getMessageName, logger} = params;
+
+    const getUrl = typeof params.url === 'function' ? params.url : () => params.url as string;
+    const openTimeout = params.handshakeTimeout ?? handshakeTimeout;
+
+    // The address of the connection being opened or open; read once per connect.
+    let url = getUrl();
 
     const messages: Record<string /* clientMsgId */, string /* clientMsgId */> = {};
 
@@ -28,11 +37,9 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
     const event$ = new Subject<Message>();
     const message$ = new Subject<ArrayBuffer | string>();
 
-    const timeout$ = timer(handshakeTimeout);
-
-    const socket = race(
+    const socket = defer(() => race(
         createSocketConnector<ArrayBuffer | string>(url, protocol),
-        timeout$.pipe(
+        timer(openTimeout).pipe(
             mergeMap(() => {
                 return throwError(() => ({
                     errorCode: 'TimeoutReached',
@@ -40,7 +47,7 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
                 }));
             }),
         ),
-    ).pipe(
+    )).pipe(
         switchMap(getResponses => {
             logger.info(`[${prefix}] connected to`, url);
 
@@ -64,6 +71,10 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
         if (subscription && !subscription.closed) {
             return;
         }
+
+        url = getUrl();
+
+        state$.next(TransportState.Connecting);
 
         subscription = socket.subscribe({
             next: data => {
