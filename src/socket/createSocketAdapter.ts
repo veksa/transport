@@ -30,7 +30,9 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
     // The address of the connection being opened or open; read once per connect.
     let url = getUrl();
 
-    const messages: Record<string /* clientMsgId */, string /* clientMsgId */> = {};
+    // The clientMsgIds of requests in flight. A Set, not an object: an id the other side writes is never read as an
+    // inherited key (`constructor`, `__proto__`).
+    const messages = new Set<string>();
 
     const state$ = new BehaviorSubject<TransportState>(TransportState.Disconnected);
 
@@ -86,7 +88,7 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
                         if (message) {
                             const messageName = getMessageName(message);
 
-                            if (messages[message.clientMsgId]) {
+                            if (messages.has(message.clientMsgId)) {
                                 logger.response(message, {prefix, prefixColor, messageName});
                                 data$.next(message);
                             } else {
@@ -125,11 +127,11 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
     };
 
     const add = (clientMsgId: string) => {
-        messages[clientMsgId] = clientMsgId;
+        messages.add(clientMsgId);
     };
 
     const drop = (clientMsgId: string) => {
-        delete messages[clientMsgId];
+        messages.delete(clientMsgId);
     };
 
     const send = (message: Message) => {

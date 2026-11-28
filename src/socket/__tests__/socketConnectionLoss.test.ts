@@ -313,6 +313,23 @@ describe('socket transport on connection loss', () => {
         ]);
     });
 
+    it('reads a push whose clientMsgId is an Object.prototype name as an event, not a reply', () => {
+        const {adapter} = createSubject();
+        const events: ISocketMessage[] = [];
+        const replies: ISocketMessage[] = [];
+
+        adapter.event$!.subscribe(message => events.push(message));
+        adapter.data$.subscribe(message => replies.push(message));
+        adapter.connect();
+
+        for (const clientMsgId of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+            socket!.server.next(JSON.stringify({payloadType: 9, payload: {}, clientMsgId}));
+        }
+
+        expect(events.map(message => message.clientMsgId)).toEqual(['constructor', 'toString', '__proto__', 'hasOwnProperty']);
+        expect(replies).toEqual([]);
+    });
+
     it('throws ClosedConnection from adapter.send while disconnected instead of dropping the message', () => {
         const {adapter} = createSubject();
 
