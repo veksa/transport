@@ -4,6 +4,7 @@ import {catchError, mergeMap} from 'rxjs/operators';
 import type {ILogger} from '@veksa/logger';
 import {ITransportAdapter, ITransportCodec, TransportState} from '../interfaces';
 import {ISocketMessage} from './socket.interface';
+import {describeMessage} from '../_helpers/describeMessage';
 
 export const handshakeTimeout = 5000;
 
@@ -139,7 +140,7 @@ export const createSocketAdapter = <Message extends ISocketMessage>(params: ISoc
                 // Nothing listens to message$ while the socket is down: throw rather than drop the message.
                 throw {
                     errorCode: 'ClosedConnection',
-                    description: `Message ${JSON.stringify(message)} was not sent. Connection is closed`,
+                    description: `${describeMessage(message)} was not sent. Connection is closed`,
                 };
             }
 

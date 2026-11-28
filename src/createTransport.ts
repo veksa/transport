@@ -2,6 +2,7 @@ import {firstValueFrom, throwError, timeout} from 'rxjs';
 import {sendRequest} from './_helpers/sendRequest';
 import {IMessage, ISendOptions, ITransport, ITransportAdapter, ITransportApi, TransportErrorCode} from './interfaces';
 import type {ILogger} from '@veksa/logger';
+import {describeMessage} from './_helpers/describeMessage';
 
 /** How long a request waits for its reply by default when the transport is built from an options object, ms. */
 export const defaultRequestTimeout = 20_000;
@@ -68,7 +69,7 @@ export const createTransport: ICreateTransport = <Type extends string, Message e
                 // Unsubscribing the request on the way out forgets its clientMsgId: a late reply is an event, not a reply.
                 with: () => throwError(() => ({
                     errorCode: TransportErrorCode.RequestTimeout,
-                    description: `Message ${JSON.stringify(message)} got no reply in ${wait} ms`,
+                    description: `${describeMessage(message)} got no reply in ${wait} ms`,
                 })),
             }))
             : request$;

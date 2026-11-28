@@ -111,6 +111,33 @@ describe('request timeout', () => {
 
         await expect(response).rejects.toEqual({errorCode: 'NOPE'});
     });
+
+    it('names a failed request without its payload: no secrets in the error, and a payload JSON cannot write still fails as a transport error', async () => {
+        const {adapter} = createAdapter();
+        const state$ = adapter.state$ as BehaviorSubject<TransportState>;
+        const transport = createTransport({type: 'server', adapter, logger});
+        const secret: ISocketMessage = {payloadType: 7, payload: {password: 'hunter2', size: BigInt(1)}, clientMsgId: 's-1'};
+
+        const timedOut = transport.api.send(secret);
+        jest.advanceTimersByTime(defaultRequestTimeout);
+        const timeoutError = await timedOut.catch(error => error);
+
+        const closed = transport.api.send(secret);
+        state$.next(TransportState.Disconnected);
+        const closedError = await closed.catch(error => error);
+
+        state$.next(TransportState.Disconnected);
+        const notSent = await transport.api.send(secret).catch(error => error);
+
+        expect(timeoutError).toMatchObject({errorCode: TransportErrorCode.RequestTimeout});
+        expect(closedError).toMatchObject({errorCode: TransportErrorCode.ClosedConnection});
+        expect(notSent).toMatchObject({errorCode: TransportErrorCode.ClosedConnection});
+
+        for (const error of [timeoutError, closedError, notSent]) {
+            expect(error.description).toContain('7');
+            expect(error.description).not.toContain('hunter2');
+        }
+    });
 });
 
 describe('transport error helpers', () => {
