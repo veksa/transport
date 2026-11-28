@@ -38,7 +38,11 @@ export function createRestConnector<Message extends IRestMessage>(
                             : undefined,
                     }).then(response => {
                         if (!response.ok) {
-                            return response.json().then(errorData => {
+                            // A proxy or a crash answers with HTML or nothing: still this request's error reply,
+                            // not a reason to tear the whole connection down.
+                            return response.json().catch(() => ({})).then((errorData: {errorCode?: unknown; description?: unknown} | null) => {
+                                errorData = errorData ?? {};
+
                                 messages.next({
                                     url: restErrorUrl,
                                     method: data.method,
