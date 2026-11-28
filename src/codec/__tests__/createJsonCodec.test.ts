@@ -121,6 +121,23 @@ describe('createJsonCodec', () => {
             expect(parsed.payload.chunk).toBe(btoa('Hello'));
         });
 
+        it('leaves the message it encodes untouched', () => {
+            const chunk = makeChunk([72, 101, 108, 108, 111]);
+            const message = {payloadType: 1, clientMsgId: 'abc', payload: {chunk, meta: {name: 'a'}}};
+
+            codec.encode(message);
+
+            expect(message.payload.chunk).toBe(chunk);
+            expect(message.payload.meta).toEqual({name: 'a'});
+        });
+
+        it('serialises values off the binary paths as JSON.stringify does', () => {
+            const at = new Date(0);
+            const message = {payloadType: 1, clientMsgId: 'abc', payload: {chunk: makeChunk([1]), at}, sentAt: at};
+
+            expect(JSON.parse(codec.encode(message) as string)).toEqual({...JSON.parse(JSON.stringify(message)), payload: {chunk: 'AQ==', at: at.toISOString()}});
+        });
+
         it('decodes nested base64 string back to Uint8Array', () => {
             const chunk = makeChunk([72, 101, 108, 108, 111]);
             const message = {payloadType: 1, clientMsgId: 'abc', payload: {chunk}};

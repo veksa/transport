@@ -56,26 +56,28 @@ export const createJsonCodec = <Message extends IMessage>(getBinaryKeys?: (messa
         }
 
         const keysSet = new Set(keys);
-        
-        // Optimized: mutate in-place instead of creating new objects
-        const processObject = (obj: any, path: string[] = []): void => {
-            if (!obj || typeof obj !== 'object') return;
-            
-            for (const key of Object.keys(obj)) {
+        // The paths that lead to a binary key: only objects on them are copied, the rest is serialised as given.
+        const prefixes = new Set(keys.flatMap(key => key.split('.').slice(0, -1).map((_, index, parts) => parts.slice(0, index + 1).join('.'))));
+
+        // Copies every object on the way to a binary key before writing into it: the caller's message keeps its Uint8Arrays.
+        const processObject = (obj: any, path: string[] = []): any => {
+            const out = {...obj};
+
+            for (const key of Object.keys(out)) {
                 const currentPath = [...path, key].join('.');
-                const value = obj[key];
-                
+                const value = out[key];
+
                 if (keysSet.has(currentPath) && value instanceof Uint8Array) {
-                    obj[key] = uint8ToBase64(value);
-                } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-                    processObject(value, [...path, key]);
+                    out[key] = uint8ToBase64(value);
+                } else if (prefixes.has(currentPath) && value && typeof value === 'object' && !Array.isArray(value) && !ArrayBuffer.isView(value)) {
+                    out[key] = processObject(value, [...path, key]);
                 }
             }
+
+            return out;
         };
-        
-        // Create a shallow copy to avoid mutating original
-        const copy = {...message};
-        processObject(copy);
+
+        const copy = processObject(message);
         return JSON.stringify(copy);
     };
 
