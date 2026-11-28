@@ -21,7 +21,8 @@ export {
     type IRoutingOptions,
     type ISupervisedAdapter,
 } from './supervisor/supervisor.interface';
-export {isClosedConnection, isRequestTimeout, isTransportError} from './errors';
+export {getErrorCode, getErrorDescription, isClosedConnection, isRequestTimeout, isTransportError} from './errors';
+export {getServerClockOffset, getServerNow, readServerClock, toLocalTime, type IServerClock} from './serverClock';
 export {
     type ITransport, type ITransportAdapter, TransportState, type ITransportCodec, type ITransportApi, type IMessage,
     TransportErrorCode, type ITransportError, type ISendOptions,

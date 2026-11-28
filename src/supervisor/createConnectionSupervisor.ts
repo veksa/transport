@@ -1,6 +1,7 @@
 import {BehaviorSubject, catchError, EMPTY, exhaustMap, map, merge, Observable, Subject, Subscription, take, timeout, TimeoutError, timer} from 'rxjs';
 import {IMessage, TransportState} from '../interfaces';
 import {sendRequest} from '../_helpers/sendRequest';
+import {readServerClock} from '../serverClock';
 import {getReconnectDelay, reconnectDefaults} from './_helpers/backoff';
 import {createRouter} from './_helpers/createRouter';
 import {
@@ -131,7 +132,13 @@ export const createConnectionSupervisor = <Message extends IMessage>(
                 return sendRequest<Message>(adapter, {...liveness.frame(), clientMsgId: ''} as Message).pipe(
                     take(1),
                     timeout({first: livenessTimeout}),
-                    map(message => ({message, rtt: Date.now() - sentAt})),
+                    map(message => {
+                        const receivedAt = Date.now();
+                        const rtt = receivedAt - sentAt;
+                        const clock = liveness.serverTime ? readServerClock(liveness.serverTime(message), receivedAt, rtt) : undefined;
+
+                        return {message, rtt, clock};
+                    }),
                     catchError((error: unknown) => {
                         if (error instanceof TimeoutError && phase === ConnectionPhase.Open) {
                             // A timer that fired far later than it was set for: the system held the app, not the network.
@@ -145,9 +152,9 @@ export const createConnectionSupervisor = <Message extends IMessage>(
                     }),
                 );
             }),
-        ).subscribe(({message, rtt}) => {
+        ).subscribe(({message, rtt, clock}) => {
             // Any reply, the error frame included, is the other side answering.
-            events$.next({type: 'alive', message, rtt});
+            events$.next(clock ? {type: 'alive', message, rtt, clock} : {type: 'alive', message, rtt});
         });
     };
 

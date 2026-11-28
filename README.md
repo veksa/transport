@@ -296,6 +296,10 @@ deprecated.
   is sent) or when the connection drops while the request is in flight, and with `{errorCode: 'RequestTimeout'}` when
   no reply comes within the timeout (`options.timeout` overrides it for one request). `isClosedConnection`,
   `isRequestTimeout` and `isTransportError` tell these apart from a reply
+- `getErrorCode(error)`: the `errorCode` of a rejection (the other side's or the transport's), `undefined` for an
+  ordinary exception
+- `getErrorDescription(error)`: the `description` the other side gave with its refusal; `undefined` when blank, for
+  an ordinary exception and for a transport failure (its text is a log diagnostic)
 - `api.event$`: Observable of incoming events
 - `getLogs()`: Retrieves logs if using @veksa/logger
 
@@ -305,7 +309,9 @@ A socket adapter under a connection supervisor behind a transport. Options: thos
 `createTransport`, plus
 
 - `url`: one address or `[primary, ...fallbacks]`
-- `liveness`: `{payloadType, interval = 15000, timeout = 10000}`; without it the connection is not probed
+- `liveness`: `{payloadType, interval = 15000, timeout = 10000, serverTime?}`; without it the connection is not
+  probed. `serverTime(payload)` reads the server's clock (epoch ms) from the echo; the `alive` event then carries
+  `clock`
 - `reconnect`: `{minDelay = 1000, maxDelay = 30000, factor = 2, jitter = 0.5, stableAfter = 10000, maxAttempts = Infinity}`
 - `routing`: `{failuresToLeave = 2, failureWindow = 600000, retryPrimaryAfter = 86400000, failuresToReturn = 3, storage?, storageKey = 'transport.route'}`
 - `handshakeTimeout` (5000), `requestTimeout` (20000)
@@ -313,7 +319,8 @@ A socket adapter under a connection supervisor behind a transport. Options: thos
 Besides the `ITransport` members it has
 
 - `events$`: `dialing`, `connected`, `dialFailed`, `dropped` (with a `DropReason`: `Closed`, `Stalled`, `Held`,
-  `Restart`, `Deliberate`), `retryScheduled`, `gaveUp`, `alive` (the liveness reply and its round trip), `route`
+  `Restart`, `Deliberate`), `retryScheduled`, `gaveUp`, `alive` (the liveness reply, its round trip and, with
+  `liveness.serverTime`, a `clock` reading), `route`
 - `status$` / `getStatus()`: the phase (`Stopped`, `Dialing`, `Open`, `Waiting`, `Offline`, `GaveUp`), address,
   failed attempts in a row, connection generation, next attempt time
 - `reconnect()`: drop and dial a fresh connection now
@@ -325,10 +332,26 @@ Besides the `ITransport` members it has
 `disconnect()` is deliberate: the supervisor never redials after it. Every other drop is redialed. The full rule set
 is in [docs/MIGRATION.md](docs/MIGRATION.md#rules-and-defaults).
 
+### Server clock
+
+Deadlines a server hands out (a token's end, a link's expiry) are its milliseconds; a device clock can be off by
+hours. Keep the last `clock` (`IServerClock`: `{serverTime, localTime}`, the two clocks at one moment, taken halfway
+through the liveness round trip) and compare on one clock:
+
+```typescript
+liveness: { payloadType: 3, serverTime: (payload) => (payload as { serverTime?: number }).serverTime },
+// events$: if (event.type === 'alive' && event.clock) store(event.clock)
+
+getServerNow(clock);            // «now» by the server's clock; Date.now() before the first reading
+toLocalTime(clock, expiresAt);  // a server time on the device clock, for Date.now() and timers
+getServerClockOffset(clock);    // server minus device, ms; undefined before the first reading
+readServerClock(serverTime, receivedAt, rtt?); // a reading from a server time that came another way
+```
+
 ### createConnectionSupervisor(options)
 
 The supervisor on its own, over any `ITransportAdapter`: `{adapter, addresses?, useAddress?, liveness?: {frame,
-interval, timeout}, reconnect?, routing?}`. It returns an adapter (hand it to `createTransport`) with the controls
+interval, timeout, serverTime?}, reconnect?, routing?}`. It returns an adapter (hand it to `createTransport`) with the controls
 above.
 
 ### Adapter Types

@@ -13,6 +13,8 @@ export interface ISocketLivenessOptions {
     interval?: number;
     /** ms, default 10000. */
     timeout?: number;
+    /** Reads the server's clock (epoch ms) from the echo's payload; the `alive` event then carries a `clock`. */
+    serverTime?: (payload: unknown) => unknown;
 }
 
 export interface ISocketTransportParams<Type extends string, Message extends ISocketMessage> {
@@ -82,6 +84,7 @@ export const createSocketTransport = <Type extends string, Message extends ISock
                 frame: () => ({payloadType: liveness.payloadType, payload: {}}) as Omit<Message, 'clientMsgId'>,
                 interval: liveness.interval,
                 timeout: liveness.timeout,
+                serverTime: liveness.serverTime ? message => liveness.serverTime?.(message.payload) : undefined,
             }
             : undefined,
     });

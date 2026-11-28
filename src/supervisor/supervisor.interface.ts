@@ -1,3 +1,4 @@
+import {IServerClock} from '../serverClock';
 import {Observable} from 'rxjs';
 import {IMessage, ITransportAdapter} from '../interfaces';
 
@@ -29,6 +30,11 @@ export interface ILivenessOptions<Message extends IMessage> {
     interval?: number;
     /** How long the echo may take before the connection is dropped and dialed again, ms. Default 10000. */
     timeout?: number;
+    /**
+     * Reads the server's clock (epoch ms) from the echo; the `alive` event then carries a `clock` reading. Anything
+     * that is not a finite number (an error frame, an older server) gives no reading.
+     */
+    serverTime?: (message: Message) => unknown;
 }
 
 /** Where the supervisor keeps the chosen fallback address across launches. Either sync or async. */
@@ -106,7 +112,7 @@ export type ConnectionEvent<Message extends IMessage> =
     | {type: 'dropped'; address?: string; reason: DropReason; openFor: number}
     | {type: 'retryScheduled'; attempt: number; delay: number}
     | {type: 'gaveUp'; attempt: number}
-    | {type: 'alive'; message: Message; rtt: number}
+    | {type: 'alive'; message: Message; rtt: number; clock?: IServerClock}
     | {type: 'route'; address: string; index: number};
 
 export interface IConnectionStatus {

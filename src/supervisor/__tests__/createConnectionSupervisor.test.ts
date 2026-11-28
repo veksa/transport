@@ -368,6 +368,46 @@ describe('connection supervisor', () => {
             expect(fake.livenessFrames()).toHaveLength(2);
         });
 
+        it('reads the server clock from the echo, paired with the middle of the round trip', () => {
+            const serverTime = Date.UTC(2030, 0, 15, 12, 0, 0);
+            const {supervisor, fake, events} = setup({
+                liveness: {...liveness, serverTime: message => (message.payload as {serverTime?: unknown}).serverTime},
+            });
+
+            supervisor.connect();
+            fake.open();
+            jest.advanceTimersByTime(0);
+            const sentAt = Date.now();
+
+            jest.advanceTimersByTime(40);
+            fake.reply({payloadType: livenessType, payload: {serverTime}, clientMsgId: fake.livenessFrames()[0].clientMsgId});
+
+            expect(ofType(events, 'alive')).toEqual([expect.objectContaining({rtt: 40, clock: {serverTime, localTime: sentAt + 20}})]);
+        });
+
+        it('gives no clock for an echo without a server time, and none without the reader', () => {
+            const {supervisor, fake, events} = setup({
+                liveness: {...liveness, serverTime: message => (message.payload as {serverTime?: unknown}).serverTime},
+            });
+
+            supervisor.connect();
+            fake.open();
+            jest.advanceTimersByTime(0);
+            fake.reply({payloadType: 50, payload: {errorCode: 'UNKNOWN_MESSAGE'}, clientMsgId: fake.livenessFrames()[0].clientMsgId});
+
+            const plain = setup({liveness});
+
+            plain.supervisor.connect();
+            plain.fake.open();
+            jest.advanceTimersByTime(0);
+            plain.fake.reply({payloadType: livenessType, payload: {serverTime: 1}, clientMsgId: plain.fake.livenessFrames()[0].clientMsgId});
+
+            expect(ofType(events, 'alive')).toHaveLength(1);
+            expect(ofType(events, 'alive')[0]).not.toHaveProperty('clock');
+            expect(ofType(plain.events, 'alive')).toHaveLength(1);
+            expect(ofType(plain.events, 'alive')[0]).not.toHaveProperty('clock');
+        });
+
         it('drops a connection whose echo does not come in time as Stalled and redials it', () => {
             const {supervisor, fake, events} = setup({liveness});
 

@@ -94,6 +94,32 @@ describe('createSocketTransport', () => {
         expect(sockets.map(socket => socket.url)).toEqual(['wss://api.example.test/ws', 'wss://relay.example.test/ws']);
     });
 
+    it('hands the echo payload to the server time reader and reports the clock', () => {
+        const serverTime = Date.UTC(2030, 0, 15, 12, 0, 0);
+        const transport = createSocketTransport<'server', ISocketMessage>({
+            type: 'server',
+            url: 'wss://api.example.test/ws',
+            protocol: 'myapp-v1',
+            codec: createJsonCodec<ISocketMessage>(),
+            logger,
+            getMessageName: message => String(message.payloadType),
+            prefix: 'S',
+            liveness: {payloadType: 7, serverTime: payload => (payload as {serverTime?: unknown}).serverTime},
+            random: () => 0,
+        });
+        const events: ConnectionEvent<ISocketMessage>[] = [];
+        transport.events$.subscribe(event => events.push(event));
+
+        transport.connect();
+        open(sockets[0]);
+        jest.advanceTimersByTime(0);
+        sockets[0].server.next(JSON.stringify({payloadType: 7, payload: {serverTime}, clientMsgId: 'id-1'}));
+
+        expect(events).toContainEqual(expect.objectContaining({type: 'alive', clock: {serverTime, localTime: Date.now()}}));
+
+        transport.dispose();
+    });
+
     it('stays down after disconnect() and fails a request made then with ClosedConnection', async () => {
         const transport = create();
         const states: TransportState[] = [];
