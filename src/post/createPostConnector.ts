@@ -42,9 +42,24 @@ export function createPostConnector<Message extends IPostMessage>(
 
         observer.next(getHostResponses);
 
+        // A window message is read only from the window this side talks to: any other window holding a reference to
+        // this one (an opener, a page embedding it, a sibling frame) could otherwise forge requests, replies and events.
+        // Without a frame or a parent the other side is the page's own native bridge, which posts with no source.
+        const fromPeer = (source: unknown): boolean => {
+            if (window !== window.parent) {
+                return source === window.parent;
+            }
+
+            if (frame) {
+                return source === frame.contentWindow;
+            }
+
+            return source === null || source === undefined || source === window;
+        };
+
         const messageHandler = (message: any) => {
-            if (message.type === 'message') {
-                if (message.data.type === oppositeType) {
+            if (message.type === 'message' && fromPeer(message.source)) {
+                if (message.data?.type === oppositeType) {
                     messages.next(message.data.data);
                 }
             }
