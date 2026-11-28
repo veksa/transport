@@ -124,6 +124,15 @@ describe('createClientPostAdapter', () => {
         });
     });
 
+    it('reads a clientMsgId named like an Object.prototype key as an event, not a request in flight', () => {
+        const adapter = createAdapter();
+
+        adapter.send({payloadType: 1, clientMsgId: 'constructor', payload: {}});
+
+        expect(mockLogger.request).not.toHaveBeenCalled();
+        expect(mockLogger.event).toHaveBeenCalledTimes(1);
+    });
+
     it('should have data$ and event$ observables defined', () => {
         const adapter = createAdapter();
         

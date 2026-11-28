@@ -19,7 +19,8 @@ export const createPostAdapter = <Message extends IPostMessage>(
 ): ITransportAdapter<Message, Message, Message> => {
     const {type, frame, prefix, prefixColor, getMessageName, logger} = params;
 
-    const messages: Record<string /* clientMsgId */, string /* clientMsgId */> = {};
+    // The clientMsgIds of requests in flight; a Set, so an id is never read as an inherited key (`constructor`).
+    const messages = new Set<string>();
 
     const state$ = new BehaviorSubject<TransportState>(TransportState.Disconnected);
 
@@ -62,7 +63,7 @@ export const createPostAdapter = <Message extends IPostMessage>(
                     if (message !== undefined) {
                         const messageName = getMessageName(message);
 
-                        if (messages[message.clientMsgId]) {
+                        if (messages.has(message.clientMsgId)) {
                             logger.response(message, {prefix, prefixColor, messageName});
                             data$.next(message);
                         } else {
@@ -96,17 +97,17 @@ export const createPostAdapter = <Message extends IPostMessage>(
     };
 
     const add = (clientMsgId: string) => {
-        messages[clientMsgId] = clientMsgId;
+        messages.add(clientMsgId);
     };
 
     const drop = (clientMsgId: string) => {
-        delete messages[clientMsgId];
+        messages.delete(clientMsgId);
     };
 
     const send = (message: Message) => {
         const messageName = getMessageName(message);
 
-        if (messages[message.clientMsgId]) {
+        if (messages.has(message.clientMsgId)) {
             logger.request(message, {prefix, prefixColor, messageName});
         } else {
             logger.event(message, {prefix, prefixColor, messageName});
